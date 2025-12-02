@@ -10,8 +10,22 @@ import Foundation
 /// Sessions are automatically extended on access and persisted to UserDefaults.
 public class SessionManager {
   private var configuration: SessionConfig
-  private var session: Session?
-  private var lock = NSLock()
+  private var _session: Session?
+
+  private var session: Session? {
+    get {
+      return sessionQueue.sync { _session }
+    }
+    set {
+      sessionQueue.sync { _session = newValue }
+    }
+  }
+
+  private let sessionQueue = DispatchQueue(
+    label: "io.opentelemetry.SessionManager",
+    qos: .userInitiated // increase priority because session are synchronously fetched
+  )
+  private var _isSessionSampled: Bool = false
 
   /// Initializes the session manager and restores any previous session from disk
   /// - Parameter configuration: Session configuration settings
@@ -25,11 +39,8 @@ public class SessionManager {
   /// - Returns: The current active session
   @discardableResult
   public func getSession() -> Session {
-    // We only lock once when fetching the current session to expire with thread safety
-    return lock.withLock {
-      refreshSession()
-      return session!
-    }
+    refreshSession()
+    return session!
   }
 
   /// Gets the current session without extending its expireTime time
@@ -38,17 +49,38 @@ public class SessionManager {
     return session
   }
 
+  /// Gets whether the current session is sampled
+  public var isSessionSampled: Bool {
+    return _isSessionSampled
+  }
+
+  /// Gets whether a specific session is sampled
+  public func isSessionSampled(for sessionId: String) -> Bool {
+    guard let currentSession = peekSession() else { return false }
+    return sessionId == currentSession.id ? _isSessionSampled : false
+  }
+
+  /// Determines if a session should be sampled based on the sample rate
+  /// - Parameter sampleRate: Sample rate from 0.0 to 1.0
+  /// - Returns: True if session should be sampled, false otherwise
+  private func shouldSampleSession(sampleRate: Double) -> Bool {
+    return Double.random(in: 0.01 ... 1) <= sampleRate
+  }
+
   /// Creates a new session with a unique identifier
   private func startSession() {
     let now = Date()
     let previousId = session?.id
     let newId = UUID().uuidString
 
-    /// Queue the previous session for a `session.end` event
-    if session != nil {
-      SessionEventInstrumentation.addSession(session: session!, eventType: .end)
-    }
+    // Update session sampling based on RNG
+    let samplingDecision = shouldSampleSession(sampleRate: configuration.sessionSampleRate)
+    _isSessionSampled = samplingDecision
 
+    // Store previous session for cleanup outside the lock
+    let previousSession = session
+
+    // Create new session
     session = Session(
       id: newId,
       expireTime: now.addingTimeInterval(Double(configuration.sessionTimeout)),
@@ -57,14 +89,23 @@ public class SessionManager {
       sessionTimeout: configuration.sessionTimeout
     )
 
+    /// Queue the previous session for a `session.end` event
+    if let previousSession {
+      SessionEventInstrumentation.addSession(session: previousSession, eventType: .end)
+    }
+
     // Queue the new session for a `session.start`` event
     SessionEventInstrumentation.addSession(session: session!, eventType: .start)
+
+    // Post notification for session start
+    if let session {
+      NotificationCenter.default.post(name: SessionEventNotification, object: session)
+    }
   }
 
   /// Refreshes the current session, creating new one if expired or extending existing one
   private func refreshSession() {
     if session == nil || session!.isExpired() {
-      // Start new session if none exists or expired
       startSession()
     } else {
       // Otherwise, extend the existing session but preserve the startTime
@@ -73,7 +114,7 @@ public class SessionManager {
         expireTime: Date(timeIntervalSinceNow: Double(configuration.sessionTimeout)),
         previousId: session!.previousId,
         startTime: session!.startTime,
-        sessionTimeout: TimeInterval(configuration.sessionTimeout)
+        sessionTimeout: configuration.sessionTimeout
       )
     }
     saveSessionToDisk()

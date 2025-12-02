@@ -24,6 +24,7 @@ final class SessionConfigurationTests: XCTestCase {
   func testBuilderDefaultValues() {
     let config = SessionConfig.builder().build()
     XCTAssertEqual(config.sessionTimeout, 30 * 60) // should be 30 minutes
+    XCTAssertEqual(config.sessionSampleRate, 1.0) // should be 100%
   }
   
   func testBuilderMethodChaining() {
@@ -39,5 +40,14 @@ final class SessionConfigurationTests: XCTestCase {
       .build()
     
     XCTAssertEqual(normalConfig.sessionTimeout, builderConfig.sessionTimeout)
+  }
+
+  func testSessionSampleRateBuilder() {
+    let config = SessionConfig.builder()
+      .with(sessionSampleRate: 0.25)
+      .build()
+
+    XCTAssertEqual(config.sessionSampleRate, 0.25)
+    XCTAssertEqual(config.sessionTimeout, 30 * 60) // Should keep default
   }
 }

@@ -7,9 +7,11 @@ final class SessionConstantsTests: XCTestCase {
     XCTAssertEqual(SessionConstants.sessionEndEvent, "session.end")
     XCTAssertEqual(SessionConstants.id, "session.id")
     XCTAssertEqual(SessionConstants.previousId, "session.previous_id")
-    XCTAssertEqual(SessionConstants.startTime, "session.start_time")
-    XCTAssertEqual(SessionConstants.endTime, "session.end_time")
     XCTAssertEqual(SessionConstants.duration, "session.duration")
-    XCTAssertEqual(SessionConstants.sessionEventNotification, "SessionEventInstrumentation.SessionEvent")
+    XCTAssertEqual(SessionConstants.sessionEventNotification, "io.opentelemetry.SessionEvent")
+  }
+
+  func testSessionEventNotification() {
+    XCTAssertEqual(SessionEventNotification.rawValue, "io.opentelemetry.SessionEvent")
   }
 }
