@@ -11,14 +11,14 @@ import XCTest
 class PersistenceSpanExporterDecoratorTests: XCTestCase {
   @UniqueTemporaryDirectory private var temporaryDirectory: Directory
 
-  class SpanExporterMock: SpanExporter {
-    let onExport: ([SpanData], TimeInterval?) -> SpanExporterResultCode
-    let onFlush: (TimeInterval?) -> SpanExporterResultCode
-    let onShutdown: (TimeInterval?) -> Void
+  final class SpanExporterMock: SpanExporter, @unchecked Sendable {
+    let onExport: @Sendable ([SpanData], TimeInterval?) -> SpanExporterResultCode
+    let onFlush: @Sendable (TimeInterval?) -> SpanExporterResultCode
+    let onShutdown: @Sendable (TimeInterval?) -> Void
 
-    init(onExport: @escaping ([SpanData], TimeInterval?) -> SpanExporterResultCode,
-         onFlush: @escaping (TimeInterval?) -> SpanExporterResultCode = { _ in .success },
-         onShutdown: @escaping (TimeInterval?) -> Void = { _ in }) {
+    init(onExport: @escaping @Sendable ([SpanData], TimeInterval?) -> SpanExporterResultCode,
+         onFlush: @escaping @Sendable (TimeInterval?) -> SpanExporterResultCode = { _ in .success },
+         onShutdown: @escaping @Sendable (TimeInterval?) -> Void = { _ in }) {
       self.onExport = onExport
       self.onFlush = onFlush
       self.onShutdown = onShutdown
@@ -85,11 +85,11 @@ class PersistenceSpanExporterDecoratorTests: XCTestCase {
     simpleSpan(tracer: tracer)
     spanProcessor.shutdown()
 
-    waitForExpectations(timeout: 10, handler: nil)
+    wait(for: [spansExportExpectation, exporterShutdownExpectation], timeout: 10)
   }
 
   func testWhenExportFails_thenSpansAreRetried() throws {
-    var exportAttempts = 0
+    nonisolated(unsafe) var exportAttempts = 0
     let firstExportExpectation = expectation(description: "first export attempt")
     let secondExportExpectation = expectation(description: "second export attempt")
 
@@ -125,7 +125,7 @@ class PersistenceSpanExporterDecoratorTests: XCTestCase {
     simpleSpan(tracer: tracer)
     spanProcessor.shutdown()
 
-    waitForExpectations(timeout: 10, handler: nil)
+    wait(for: [firstExportExpectation, secondExportExpectation], timeout: 10)
     XCTAssertEqual(exportAttempts, 2, "Expected 2 export attempts (1 failure + 1 retry)")
   }
 
