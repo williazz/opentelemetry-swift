@@ -278,7 +278,7 @@ let package = Package(
         "OpenTelemetrySdk",
       ],
       path: "Sources/Instrumentation/UserId",
-      exclude: ["README.md"]
+      exclude: ["README.md", "img"]
     ),
     .target(
       name: "SharedTestUtils",
