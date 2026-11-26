@@ -3,6 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import ScreenInstrumentation
 import SwiftUI
 import Sessions
 import UserId
@@ -22,6 +23,7 @@ struct SettingsView: View {
   @State private var showingCustomTelemetry = false
   @State private var showingCpuTest = false
   @State private var showingMemoryTest = false
+  @State private var screenData: [(String, String)] = []
   @State private var timer: Timer?
 
   // Entries whose instrumentation is not available in this repo yet. They are
@@ -71,6 +73,12 @@ struct SettingsView: View {
           } else {
             SettingsRow(title: item.0, value: item.1, isCopyable: item.0 != "Session Expiry")
           }
+        }
+      }
+
+      Section("Screens") {
+        ForEach(screenData, id: \.0) { item in
+          SettingsRow(title: item.0, value: item.1, isCopyable: false)
         }
       }
 
@@ -169,6 +177,9 @@ struct SettingsView: View {
     .overlay(
       ToastView(isShowing: $showingToast)
     )
+    // The SwiftUI half of the screen instrumentation. Screen tracking skips hosting
+    // controllers by default, so this modifier is what reports the Settings tab.
+    .otelScreen("Settings")
   }
 
   private func loadSessionData() {
@@ -177,6 +188,8 @@ struct SettingsView: View {
       ("Logs Endpoint", TelemetryConfig.logsEndpoint.absoluteString),
       ("Traces Endpoint", TelemetryConfig.tracesEndpoint.absoluteString)
     ]
+
+    refreshScreenData()
 
     troubleshootingData = [
       ("Trigger App Hang", "Tap to configure"),
@@ -221,9 +234,20 @@ struct SettingsView: View {
     return "timeout \(Int(config.sessionTimeout))s / max \(maxLifetime) / \(restore)"
   }
 
+  // Read on the timer, not only on appear: the tracker changes while this tab is up, and the
+  // onAppear that records this screen can run after this view's own.
+  private func refreshScreenData() {
+    let tracker = ScreenTrackerProvider.getInstance()
+    screenData = [
+      ("Current Screen", tracker.currentScreen ?? "nil"),
+      ("Previous Screen", tracker.previousScreen ?? "nil")
+    ]
+  }
+
   private func startTimer() {
     timer?.invalidate()
     timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+      refreshScreenData()
       updateExpiryTime()
     }
   }

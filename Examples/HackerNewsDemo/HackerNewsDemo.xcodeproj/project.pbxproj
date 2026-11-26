@@ -16,6 +16,7 @@
 		DB286F502EC3007300F39808 /* Crash in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F4F2EC3007300F39808 /* Crash */; };
 		DB286F542EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F532EC3007300F39808 /* MincoreLaunchInstrumentation */; };
 		A17C4E022F10AA0100000002 /* AppHang in Frameworks */ = {isa = PBXBuildFile; productRef = A17C4E012F10AA0100000001 /* AppHang */; };
+		DB286F522EC3007300F39808 /* ScreenInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F512EC3007300F39808 /* ScreenInstrumentation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -44,6 +45,7 @@
 				DB286F502EC3007300F39808 /* Crash in Frameworks */,
 				DB286F542EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */,
 				A17C4E022F10AA0100000002 /* AppHang in Frameworks */,
+				DB286F522EC3007300F39808 /* ScreenInstrumentation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -103,6 +105,7 @@
 				DB286F4F2EC3007300F39808 /* Crash */,
 				DB286F532EC3007300F39808 /* MincoreLaunchInstrumentation */,
 				A17C4E012F10AA0100000001 /* AppHang */,
+				DB286F512EC3007300F39808 /* ScreenInstrumentation */,
 			);
 			productName = HackerNewsDemo;
 			productReference = 306BC6982E00C6AA00F19E48 /* HackerNewsDemo.app */;
@@ -434,6 +437,10 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
 			productName = AppHang;
+		DB286F512EC3007300F39808 /* ScreenInstrumentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = ScreenInstrumentation;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

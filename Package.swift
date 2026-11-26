@@ -94,6 +94,7 @@ let package = Package(
     .library(name: "Sessions", targets: ["Sessions"]),
     .library(name: "UserId", targets: ["UserId"]),
     .library(name: "DeviceAttributesInstrumentation", targets: ["DeviceAttributesInstrumentation"]),
+    .library(name: "ScreenInstrumentation", targets: ["ScreenInstrumentation"]),
     .executable(name: "ConcurrencyContext", targets: ["ConcurrencyContext"]),
     .executable(name: "loggingTracer", targets: ["LoggingTracer"]),
     .executable(name: "StableMetricSample", targets: ["StableMetricSample"]),
@@ -268,6 +269,16 @@ let package = Package(
       path: "Sources/Instrumentation/Common"
     ),
     .target(
+      name: "ScreenInstrumentation",
+      dependencies: [
+        "InstrumentationSemanticConventions",
+        "OpenTelemetryApi",
+        "OpenTelemetrySdk",
+      ],
+      path: "Sources/Instrumentation/Screen",
+      exclude: ["README.md"]
+    ),
+    .target(
       name: "InstrumentationSemanticConventions",
       path: "Sources/Instrumentation/SemanticConventions",
       exclude: ["README.md", "generate.sh", "model", "templates"]
@@ -423,6 +434,16 @@ let package = Package(
         "SharedTestUtils",
       ],
       path: "Tests/InstrumentationTests/DeviceAttributesTests"
+    ),
+    .testTarget(
+      name: "ScreenTests",
+      dependencies: [
+        "SharedTestUtils",
+        "InstrumentationSemanticConventions",
+        "ScreenInstrumentation",
+        "OpenTelemetrySdk",
+      ],
+      path: "Tests/InstrumentationTests/ScreenTests"
     ),
     .executableTarget(
       name: "ConcurrencyContext",

@@ -31,11 +31,16 @@ let package = Package(
     // constants generated from the federated semantic conventions in
     // InstrumentationSemanticConventions, reached through the app launch
     // instrumentation product.
+    // HTTP exporter product. ScreenInstrumentationTests checks the screen
+    // telemetry with the constants generated from the federated semantic
+    // conventions in InstrumentationSemanticConventions, reached through the
+    // screen instrumentation product.
     .testTarget(
       name: "IntegrationTests",
       dependencies: [
         .product(name: "OpenTelemetryProtocolExporterHTTP", package: "opentelemetry-swift"),
         .product(name: "MincoreLaunchInstrumentation", package: "opentelemetry-swift")
+        .product(name: "ScreenInstrumentation", package: "opentelemetry-swift")
       ],
       path: "Assertions"
     )
