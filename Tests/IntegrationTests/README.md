@@ -86,6 +86,9 @@ repo work together inside a real iOS app. The flow is:
    real launch resumes it. Focus loss isn't covered, because only UI automation
    can dismiss a system alert, and neither is a new scene connecting as the app
    resumes, because an iPhone app can't destroy its only scene.
+   - `hang`: blocks the main thread for one second, which must be reported as a
+     single `device.hang` span of that length, carrying the main thread's live
+     stack trace and the session it happened in.
    Session config is passed as launch arguments because `SessionConfig` is
    only read when a `SessionManager` is created. The app stays installed
    between launches so persisted session state and stored crash reports carry

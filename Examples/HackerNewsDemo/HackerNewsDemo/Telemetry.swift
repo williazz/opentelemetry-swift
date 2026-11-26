@@ -4,6 +4,7 @@
  */
 
 import MincoreLaunchInstrumentation
+import AppHang
 import Crash
 import DeviceAttributesInstrumentation
 import Foundation
@@ -86,6 +87,14 @@ enum TelemetryConfig {
   // choose it with `--httpSemanticConvention`.
   static var httpSemanticConvention: HTTPSemanticConvention {
     IntegrationTestScenario.isEnabled ? IntegrationTestScenario.httpSemanticConvention : .old
+  /// Symbol names are on, so a hang's stack trace reads as sent: this app has no backend that
+  /// symbolicates from its dSYMs. Hangs are recorded under a debugger too, so a hang triggered
+  /// from an Xcode run still reports.
+  static var hangConfig: AppHangInstrumentationConfiguration {
+    var config = AppHangInstrumentationConfiguration()
+    config.includesSymbolNames = true
+    config.recordsHangsWhileTraced = true
+    return config
   }
 }
 
@@ -165,7 +174,10 @@ enum Telemetry {
       semanticConvention: TelemetryConfig.httpSemanticConvention
     ))
 
-    // TODO: no app hang instrumentation
+    // Installed from didFinishLaunching, on the main thread, so the run loop observer is in
+    // place for the first hang. Hangs are reported through the TracerProvider registered above.
+    AppHangInstrumentation.install(configuration: TelemetryConfig.hangConfig)
+
     // TODO: no UIKit/SwiftUI view instrumentation
   }
 }

@@ -137,7 +137,14 @@ enum IntegrationTestScenario {
     case userIdSet = "user-id-set"
     case userIdRestored = "user-id-restored"
     case userIdCleared = "user-id-cleared"
+    // Blocks the main thread for a fixed `hangDuration`, which AppHang must report as one
+    // `device.hang` span with the main thread's stack trace.
+    case hang
   }
+
+  // How long the hang launch blocks the main thread. Four times the 250 ms threshold, so the
+  // assertion on the span's duration needs no tolerance for a slow simulator.
+  static let hangDuration: TimeInterval = 1
 
   // Default session timeout for the main launch: short enough that the
   // scenario can let the first session expire and observe session.end /
@@ -275,6 +282,38 @@ enum IntegrationTestScenario {
     case .appStartResume, .appStartLateInstall, .appStartUpdate, .appStartReinstall, .appStartMincore:
       // Completed from `recordLifecycle` once the expected activations have been displayed.
       break
+    case .hang:
+      DispatchQueue.global().async {
+        // Nothing is recorded before the app becomes active: until then the main thread is busy
+        // with the launch, which is not a hang. Waiting for the activation is what makes the
+        // blocked second below a hang the instrumentation reports.
+        waitUntilActive()
+        let probe = span(tracer, probeSpanName)
+        DispatchQueue.main.async {
+          Thread.sleep(forTimeInterval: hangDuration)
+        }
+        // The hang span is recorded on the watchdog thread once the main thread is free, so the
+        // completion marker waits for both the hang and that handoff.
+        Thread.sleep(forTimeInterval: hangDuration + 2)
+        probe.end()
+        complete(tracer: tracer)
+      }
+    }
+  }
+
+  /// Blocks the calling thread until the app is active, which a launch on a loaded machine can
+  /// take seconds to reach, and then lets the activation's own run loop pass finish.
+  private static func waitUntilActive(timeout: TimeInterval = 60) {
+    let deadline = Date().addingTimeInterval(timeout)
+    while Date() < deadline {
+      let isActive = DispatchQueue.main.sync {
+        MainActor.assumeIsolated { UIApplication.shared.applicationState == .active }
+      }
+      if isActive {
+        Thread.sleep(forTimeInterval: 0.5)
+        return
+      }
+      Thread.sleep(forTimeInterval: 0.1)
     }
   }
 

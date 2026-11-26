@@ -538,6 +538,7 @@ extension Package {
           name: "MincoreLaunchInstrumentation",
           targets: ["MincoreLaunchInstrumentation"]
         ),
+        .library(name: "AppHang", targets: ["AppHang"]),
       ])
       targets.append(contentsOf: [
         .target(
@@ -815,6 +816,34 @@ extension Package {
             "SharedTestUtils",
           ],
           path: "Tests/InstrumentationTests/AppLaunchTests"
+        ),
+        .target(
+          name: "AppHang",
+          dependencies: [
+            "OpenTelemetryApi",
+            "InstrumentationSemanticConventions",
+            .product(
+              name: "RecordingCore",
+              package: "KSCrash",
+              condition: .whenTrait(PackageTraitName.crashReporting)
+            ),
+            .product(
+              name: "DemangleFilter",
+              package: "KSCrash",
+              condition: .whenTrait(PackageTraitName.crashReporting)
+            ),
+          ],
+          path: "Sources/Instrumentation/AppHang"
+        ),
+        .testTarget(
+          name: "AppHangTests",
+          dependencies: [
+            "AppHang",
+            "InMemoryExporter",
+            "SharedTestUtils",
+            "OpenTelemetrySdk",
+          ],
+          path: "Tests/InstrumentationTests/AppHangTests"
         ),
       ])
     #endif

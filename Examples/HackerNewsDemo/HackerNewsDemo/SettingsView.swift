@@ -29,6 +29,8 @@ struct SettingsView: View {
   // stay in the file for when the instrumentations land.
   private static let comingSoon: Set<String> = [
     "Trigger App Hang"
+    "CPU Test",
+    "Memory Test"
   ]
 
   var body: some View {

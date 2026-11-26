@@ -394,6 +394,7 @@ else
   run_launch user-id-set --sessionTimeout 3600 --userId integration-user-1
   run_launch user-id-restored --sessionTimeout 3600
   run_launch user-id-cleared --sessionTimeout 3600 --clearUserId
+  run_launch hang --sessionTimeout 3600 --restorePersistedSession false
 fi
 
 log "Collected files"

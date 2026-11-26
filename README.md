@@ -90,7 +90,7 @@ Integrations that need a third-party package are behind [package traits](https:/
 | `SwiftObservabilityAPIBridges` | Bridges for the Swift Log, Swift Metrics, and Swift Distributed Tracing APIs | `OTelSwiftLog`, `OTelSwiftTracing`, `SwiftMetricsShim` |
 | `Jaeger` | The Jaeger exporter | `JaegerExporter` |
 | `OpenTracing` | The experimental OpenTracing shim | `OpenTracingShim-experimental` |
-| `CrashReporting` | Crash reporting | `Crash` |
+| `CrashReporting` | Crash reporting, and the live stack trace of a hang | `Crash`, `AppHang` |
 
 Enable the traits for the products you use in your `Package.swift`:
 
@@ -173,6 +173,7 @@ Add the products you need to your target and follow their setup instructions; ad
 | [`MetricKitInstrumentation`](Sources/Instrumentation/MetricKit/README.md) | MetricKit performance and diagnostic payloads | Where MetricKit is available; excludes macOS and tvOS |
 | [`Crash`](Sources/Instrumentation/Crash/README.md) | KSCrash crash reporting | Apple platforms; unreleased on `main`, not in 2.6.0 |
 | [`MincoreLaunchInstrumentation`](Sources/Instrumentation/AppLaunch/README.md) | App launch and resume spans, with `cold` and `warm` measured from code-page residency | Apple platforms except watchOS; experimental, unreleased on `main` |
+| [`AppHang`](Sources/Instrumentation/AppHang/README.md) | Main-thread hangs, with the hung thread's stack trace | Apple platforms; unreleased on `main`, not in 2.6.0 |
 
 The linked documentation follows this branch. For released behavior, use the documentation at your release tag.
 

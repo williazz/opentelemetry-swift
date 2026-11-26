@@ -1,0 +1,44 @@
+groups:
+  - id: span.device_hang
+    type: span
+    annotations:
+      span_name: device.hang
+    span_kind: internal
+    stability: development
+    brief: >
+      A stretch where the app's main thread stopped answering, with the stack trace of that
+      thread taken while it was still blocked.
+    note: |
+      **Span name** MUST be `device.hang`.
+
+      **Span kind** MUST be `INTERNAL`.
+
+      **Instrumentation scope** MUST be `io.opentelemetry.apphang`.
+
+      The span has no parent: a hang belongs to no operation, so it starts its own trace.
+
+      A hang is one pass of the main run loop that took longer than the configured threshold, 250
+      ms by default, which is the duration Apple's Hangs instrument calls a microhang. The span
+      starts when the run loop woke, `CFRunLoopActivity.afterWaiting`, and ends when it went back
+      to sleep, `beforeWaiting`. A thread parked in `beforeWaiting` is idle rather than hung, so a
+      quiet app records nothing.
+
+      Nothing is recorded while the app is in the background, because the system suspends a
+      backgrounded app mid-pass and the next `beforeWaiting` would report the suspension as part
+      of the hang. Nothing is recorded while a debugger has the process traced either, because a
+      breakpoint stops the main thread.
+
+      `exception.stacktrace` is the main thread's stack in Apple's unsymbolicated report format,
+      captured while the thread was still blocked, which is the only time those frames exist. It
+      lists the images on the stack with their UUIDs, so a backend can symbolicate it.
+      `exception.message` names the first frame in the app's own binaries, as module and offset,
+      because the app's code says more about the cause than the system call the thread is parked
+      in.
+    attributes:
+      - ref: exception.type
+        requirement_level: required
+      - ref: exception.message
+        requirement_level: required
+      - ref: exception.stacktrace
+        requirement_level:
+          conditionally_required: If the main thread's stack could be captured.

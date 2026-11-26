@@ -9,22 +9,28 @@
 
 import Foundation
 
+{% set spans = ctx | selectattr("kind", "equalto", "span") | sort(attribute="name") | list %}
+{% set metrics = ctx | selectattr("kind", "equalto", "metric") | sort(attribute="name") | list %}
 extension FederatedSemanticConventions {
+{% if spans %}
   /// The span names the federated registry defines, so instrumentations don't repeat the strings.
   public enum SpanName: String, CaseIterable {
-{% for group in ctx | selectattr("kind", "equalto", "span") | sort(attribute="name") %}
+{% for group in spans %}
 
     /// {{ group.brief | trim | replace("\n", " ") }}
     case {{ group.name | replace(".", "_") | camel_case }} = "{{ group.name }}"
 {% endfor %}
   }
+{% endif %}
+{% if metrics %}
 
   /// The metric names the federated registry defines.
   public enum MetricName: String, CaseIterable {
-{% for group in ctx | selectattr("kind", "equalto", "metric") | sort(attribute="name") %}
+{% for group in metrics %}
 
     /// {{ group.brief | trim | replace("\n", " ") }}
     case {{ group.name | replace(".", "_") | camel_case }} = "{{ group.name }}"
 {% endfor %}
   }
+{% endif %}
 }

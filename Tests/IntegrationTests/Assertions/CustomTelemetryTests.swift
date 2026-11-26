@@ -47,10 +47,14 @@ enum Scenario {
     case userIdSet = "user-id-set"
     case userIdRestored = "user-id-restored"
     case userIdCleared = "user-id-cleared"
+    case hang
   }
 
   // Session config the runner passes to each launch.
   static let maxLifetimeSeconds: TimeInterval = 3
+
+  // How long the hang launch blocks the main thread.
+  static let hangDuration: TimeInterval = 1
 }
 
 final class CustomTelemetryTests: XCTestCase {

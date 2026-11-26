@@ -31,6 +31,9 @@ extension FederatedSemanticConventions {
 
     /// The first scene connecting during a launch, to the first frame displayed.
     case appStartSceneSetup = "app.start.scene_setup"
+
+    /// A stretch where the app's main thread stopped answering, with the stack trace of that thread taken while it was still blocked.
+    case deviceHang = "device.hang"
   }
 
   /// The metric names the federated registry defines.
