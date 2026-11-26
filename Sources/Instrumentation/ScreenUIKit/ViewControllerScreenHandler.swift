@@ -5,6 +5,7 @@
 
 #if canImport(UIKit) && !os(watchOS)
   import Foundation
+  import ScreenInstrumentation
   import OpenTelemetryApi
   import UIKit
 
@@ -29,10 +30,10 @@
   /// the screen, what to call it, what to record — is testable without swizzling anything.
   @MainActor
   final class ViewControllerScreenHandler {
-    private let config: ScreenInstrumentationConfig
+    private let config: ScreenUIKitConfig
     private let screenTracker: ScreenTracker
 
-    init(config: ScreenInstrumentationConfig, screenTracker: ScreenTracker) {
+    init(config: ScreenUIKitConfig, screenTracker: ScreenTracker) {
       self.config = config
       self.screenTracker = screenTracker
     }
@@ -57,7 +58,6 @@
       // one the user just left.
       screenTracker.setCurrent(screen: screen, type: .uikit, timestamp: now)
 
-      guard config.recordsTimeToFirstAppear else { return }
 
       // A view controller that loaded before install() has no state, so it has no load time and
       // no measurable first appearance. It still reports the screen change above.

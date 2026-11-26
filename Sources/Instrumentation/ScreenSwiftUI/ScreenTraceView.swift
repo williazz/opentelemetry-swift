@@ -5,6 +5,7 @@
 
 #if canImport(SwiftUI)
   import Foundation
+  import ScreenInstrumentation
   import OpenTelemetryApi
   import SwiftUI
 

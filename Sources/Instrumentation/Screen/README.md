@@ -6,6 +6,17 @@ The **`ScreenTracker`** class tracks the screen the user is looking at, attaches
 
 A screen also records one `app.screen.time_to_first_appear` span per instance, measuring creation to first appearance. UIKit screens are detected by swizzling; SwiftUI screens name themselves through a modifier.
 
+Three modules ship separately, so an app links only the front end it uses and a SwiftUI-only app never swizzles `UIViewController`.
+
+<dl>
+<dt><code>ScreenInstrumentation</code></dt>
+<dd>The tracker and the two processors. Required, and free of UIKit and SwiftUI.</dd>
+<dt><code>ScreenInstrumentationUIKit</code></dt>
+<dd>Detects UIKit screens by swizzling, and carries <code>install()</code>.</dd>
+<dt><code>ScreenInstrumentationSwiftUI</code></dt>
+<dd>The <code>otelScreen(_:attributes:)</code> modifier and the <code>ScreenTraceView</code> wrapper. Needs no install step.</dd>
+</dl>
+
 The following diagram shows what the span measures and how the current screen moves across a navigation.
 
 ![Two parts. Above, a bar for a UIKit screen running from viewDidLoad to viewDidAppear, and a bar for a SwiftUI screen running from state creation to the first onAppear, each one an app.screen.time_to_first_appear span. Below, three boxes showing the current and previous screen as the user pushes from Stories to Comments and then pops back to Stories, with an app.navigation.complete event on each transition, including the pop.](img/screen-timeline.svg)
@@ -16,6 +27,7 @@ Register the providers first, then install. Installing swizzles `UIViewControlle
 
 ```swift
 import ScreenInstrumentation
+import ScreenInstrumentationUIKit
 import OpenTelemetrySdk
 
 let tracerProvider = TracerProviderBuilder()
@@ -33,29 +45,31 @@ let loggerProvider = LoggerProviderBuilder()
   .build()
 OpenTelemetry.registerLoggerProvider(loggerProvider: loggerProvider)
 
-ScreenInstrumentation.install()
+ScreenInstrumentationUIKit.install()
 ```
 
 `ScreenSpanProcessor` must run before the exporting processor, and `ScreenLogRecordProcessor` must wrap it, because the attribute is attached before batching.
 
 ## Configuration options
 
+`ScreenUIKitConfig` configures the UIKit module.
+
 <dl>
 <dt><code>bundle</code></dt>
 <dd>A <code>Bundle</code> whose classes are tracked. Defaults to <code>.main</code>, which keeps <code>UINavigationController</code>, <code>UITabBarController</code> and the frameworks' other plumbing out of the data.</dd>
-<dt><code>tracksUIKitScreens</code></dt>
-<dd>A Boolean turning on UIKit detection, by swizzling <code>viewDidLoad</code> and <code>viewDidAppear(_:)</code>. Defaults to <code>true</code>.</dd>
 <dt><code>recordsTimeToFirstAppear</code></dt>
-<dd>A Boolean turning on the <code>app.screen.time_to_first_appear</code> span. Defaults to <code>true</code>.</dd>
+<dd>A Boolean turning on the <code>app.screen.time_to_first_appear</code> span. Defaults to <code>true</code>. Installing applies it to the tracker, so it reaches SwiftUI screens too; a SwiftUI-only app sets <code>ScreenTrackerProvider.getInstance().recordsTimeToFirstAppear</code> instead.</dd>
 <dt><code>tracksHostingControllers</code></dt>
 <dd>A Boolean reporting SwiftUI hosting controllers as UIKit screens, named after the hosting controller's class. Defaults to <code>false</code>, because a <code>UIHostingController</code> reports a generic wrapper name that buries the SwiftUI screen.</dd>
 </dl>
 
 ```swift
-ScreenInstrumentation.install(config: ScreenInstrumentationConfig(
+ScreenInstrumentationUIKit.install(config: ScreenUIKitConfig(
   tracksHostingControllers: true
 ))
 ```
+
+There is no switch to turn UIKit detection off: an app that wants no swizzling does not link `ScreenInstrumentationUIKit`.
 
 ## UIKit screens
 
@@ -78,6 +92,8 @@ final class DebugViewController: UIViewController, ScreenTrackingCustomization {
 ## SwiftUI screens
 
 ```swift
+import ScreenInstrumentationSwiftUI
+
 SettingsView()
   .otelScreen("Settings")
 ```
@@ -118,7 +134,7 @@ Upstream deprecated `screen.name` in favour of `app.screen.name`, and Android re
 
 ## Platform support
 
-UIKit detection needs UIKit, so it is unavailable on macOS and watchOS. The SwiftUI modifier works everywhere SwiftUI does. A `swift test` run on macOS compiles the UIKit paths out entirely; see [Limits and testing](docs/limits.md).
+`ScreenInstrumentationUIKit` needs UIKit, so it does nothing on macOS and watchOS. `ScreenInstrumentationSwiftUI` works everywhere SwiftUI does, and `ScreenInstrumentation` needs neither framework. A `swift test` run on macOS compiles the UIKit paths out entirely; see [Limits and testing](docs/limits.md).
 
 ## See also
 

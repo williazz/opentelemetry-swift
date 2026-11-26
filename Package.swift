@@ -95,6 +95,8 @@ let package = Package(
     .library(name: "UserId", targets: ["UserId"]),
     .library(name: "DeviceAttributesInstrumentation", targets: ["DeviceAttributesInstrumentation"]),
     .library(name: "ScreenInstrumentation", targets: ["ScreenInstrumentation"]),
+    .library(name: "ScreenInstrumentationUIKit", targets: ["ScreenInstrumentationUIKit"]),
+    .library(name: "ScreenInstrumentationSwiftUI", targets: ["ScreenInstrumentationSwiftUI"]),
     .executable(name: "ConcurrencyContext", targets: ["ConcurrencyContext"]),
     .executable(name: "loggingTracer", targets: ["LoggingTracer"]),
     .executable(name: "StableMetricSample", targets: ["StableMetricSample"]),
@@ -276,7 +278,27 @@ let package = Package(
         "OpenTelemetrySdk",
       ],
       path: "Sources/Instrumentation/Screen",
-      exclude: ["README.md"]
+      exclude: ["README.md", "docs", "img"]
+    ),
+    .target(
+      name: "ScreenInstrumentationUIKit",
+      dependencies: [
+        "ScreenInstrumentation",
+        "InstrumentationSemanticConventions",
+        "OpenTelemetryApi",
+        "OpenTelemetrySdk",
+      ],
+      path: "Sources/Instrumentation/ScreenUIKit"
+    ),
+    .target(
+      name: "ScreenInstrumentationSwiftUI",
+      dependencies: [
+        "ScreenInstrumentation",
+        "InstrumentationSemanticConventions",
+        "OpenTelemetryApi",
+        "OpenTelemetrySdk",
+      ],
+      path: "Sources/Instrumentation/ScreenSwiftUI"
     ),
     .target(
       name: "InstrumentationSemanticConventions",
@@ -441,6 +463,8 @@ let package = Package(
         "SharedTestUtils",
         "InstrumentationSemanticConventions",
         "ScreenInstrumentation",
+        "ScreenInstrumentationUIKit",
+        "ScreenInstrumentationSwiftUI",
         "OpenTelemetrySdk",
       ],
       path: "Tests/InstrumentationTests/ScreenTests"
@@ -854,7 +878,8 @@ extension Package {
               condition: .whenTrait(PackageTraitName.crashReporting)
             ),
           ],
-          path: "Sources/Instrumentation/AppHang"
+          path: "Sources/Instrumentation/AppHang",
+          exclude: ["README.md"]
         ),
         .testTarget(
           name: "AppHangTests",

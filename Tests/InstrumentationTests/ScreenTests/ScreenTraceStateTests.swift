@@ -8,6 +8,7 @@
 import OpenTelemetryApi
   @testable import OpenTelemetrySdk
   @testable import ScreenInstrumentation
+@testable import ScreenInstrumentationSwiftUI
   import XCTest
 
   /// Covers what the SwiftUI modifier does when a view appears. The reporting lives on

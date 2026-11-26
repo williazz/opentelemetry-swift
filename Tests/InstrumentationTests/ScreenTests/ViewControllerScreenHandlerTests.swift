@@ -8,6 +8,7 @@
 import OpenTelemetryApi
   @testable import OpenTelemetrySdk
   @testable import ScreenInstrumentation
+@testable import ScreenInstrumentationUIKit
   import UIKit
   import XCTest
 
@@ -43,9 +44,9 @@ import OpenTelemetryApi
 
     /// The test bundle, not the app bundle: that is where these view controllers live.
     @MainActor
-    private func makeHandler(_ config: ScreenInstrumentationConfig? = nil) -> ViewControllerScreenHandler {
+    private func makeHandler(_ config: ScreenUIKitConfig? = nil) -> ViewControllerScreenHandler {
       ViewControllerScreenHandler(
-        config: config ?? ScreenInstrumentationConfig(bundle: Bundle(for: ViewControllerScreenHandlerTests.self)),
+        config: config ?? ScreenUIKitConfig(bundle: Bundle(for: ViewControllerScreenHandlerTests.self)),
         screenTracker: tracker
       )
     }
@@ -99,7 +100,7 @@ import OpenTelemetryApi
 
     @MainActor
     func testTracksAHostingControllerWhenConfiguredTo() {
-      let handler = makeHandler(ScreenInstrumentationConfig(
+      let handler = makeHandler(ScreenUIKitConfig(
         bundle: Bundle(for: ViewControllerScreenHandlerTests.self),
         tracksHostingControllers: true
       ))
@@ -183,10 +184,9 @@ import OpenTelemetryApi
 
     @MainActor
     func testTimingCanBeTurnedOffWithoutLosingTheScreen() {
-      let handler = makeHandler(ScreenInstrumentationConfig(
-        bundle: Bundle(for: ViewControllerScreenHandlerTests.self),
-        recordsTimeToFirstAppear: false
-      ))
+      // The tracker owns this, so turning it off reaches SwiftUI screens too.
+      tracker.recordsTimeToFirstAppear = false
+      let handler = makeHandler()
       let viewController = StoriesViewController()
 
       handler.onViewDidLoad(viewController)

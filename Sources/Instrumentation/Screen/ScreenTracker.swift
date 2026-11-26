@@ -23,8 +23,22 @@ public final class ScreenTracker: @unchecked Sendable {
   private let lock = NSLock()
   private var _currentScreen: String?
   private var _previousScreen: String?
+  private var _recordsTimeToFirstAppear: Bool
 
-  public init() {}
+  /// - Parameter recordsTimeToFirstAppear: Whether `recordTimeToFirstAppear` records a span.
+  ///   Defaults to `true`.
+  public init(recordsTimeToFirstAppear: Bool = true) {
+    _recordsTimeToFirstAppear = recordsTimeToFirstAppear
+  }
+
+  /// Whether a screen records an `app.screen.time_to_first_appear` span.
+  ///
+  /// The tracker holds this rather than either front end, so turning it off reaches UIKit and
+  /// SwiftUI alike. Set it before the first screen appears.
+  public var recordsTimeToFirstAppear: Bool {
+    get { lock.withLock { _recordsTimeToFirstAppear } }
+    set { lock.withLock { _recordsTimeToFirstAppear = newValue } }
+  }
 
   /// The screen the user is looking at, or `nil` before the first screen appears.
   public var currentScreen: String? {
@@ -113,6 +127,8 @@ public final class ScreenTracker: @unchecked Sendable {
                                       loadTime: Date,
                                       appearTime: Date,
                                       attributes: [String: AttributeValue] = [:]) {
+    guard recordsTimeToFirstAppear else { return }
+
     let builder = Self.tracer(for: type)
       .spanBuilder(spanName: FederatedSemanticConventions.SpanName.appScreenTimeToFirstAppear.rawValue)
       .setStartTime(time: loadTime)
