@@ -78,35 +78,35 @@ struct SettingsView: View {
         ForEach(troubleshootingData, id: \.0) { item in
           Button(action: {
             if item.0 == "Trigger App Hang" {
-                showingHangPicker = true
-              } else if item.0 == "Trigger App Crash" {
-                showingCrashPicker = true
-              } else if item.0 == "Load Test" {
-                showingTelemetryGenerator = true
-              } else if item.0 == "Custom Span / Log" {
-                showingCustomTelemetry = true
-              } else if item.0 == "CPU Test" {
-                showingCpuTest = true
-              } else if item.0 == "Memory Test" {
-                showingMemoryTest = true
-              }
-            }) {
-              HStack {
-                Text(item.0)
-                  .font(.system(.caption, design: .monospaced, weight: .medium))
-                  .foregroundColor(.primary)
-                Spacer(minLength: 20)
-                Text(item.1)
-                  .font(.system(.caption, design: .monospaced))
-                  .foregroundColor(.blue)
-                  .multilineTextAlignment(.trailing)
-                  .frame(maxWidth: 200, alignment: .trailing)
-                  .lineLimit(nil)
-                Image(systemName: "chevron.right")
-                  .foregroundColor(.secondary)
-                  .font(.caption)
-              }
+              showingHangPicker = true
+            } else if item.0 == "Trigger App Crash" {
+              showingCrashPicker = true
+            } else if item.0 == "Load Test" {
+              showingTelemetryGenerator = true
+            } else if item.0 == "Custom Span / Log" {
+              showingCustomTelemetry = true
+            } else if item.0 == "CPU Test" {
+              showingCpuTest = true
+            } else if item.0 == "Memory Test" {
+              showingMemoryTest = true
             }
+          }) {
+            HStack {
+              Text(item.0)
+                .font(.system(.caption, design: .monospaced, weight: .medium))
+                .foregroundColor(.primary)
+              Spacer(minLength: 20)
+              Text(item.1)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundColor(.blue)
+                .multilineTextAlignment(.trailing)
+                .frame(maxWidth: 200, alignment: .trailing)
+                .lineLimit(nil)
+              Image(systemName: "chevron.right")
+                .foregroundColor(.secondary)
+                .font(.caption)
+            }
+          }
           .help("Tap to run load test with custom logs and spans")
         }
       }
