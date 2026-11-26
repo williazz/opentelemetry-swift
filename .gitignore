@@ -97,6 +97,7 @@ iOSInjectionProject/
 .DS_Store
 # Integration test output
 Tests/IntegrationTests/out/
+Tests/IntegrationTests/out-remote/
 Tests/IntegrationTests/.derivedData/
 
 # The Hacker News demo project is checked in so the integration tests can build it

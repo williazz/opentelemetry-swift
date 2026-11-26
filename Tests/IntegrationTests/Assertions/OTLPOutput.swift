@@ -52,15 +52,34 @@ extension Array where Element == Opentelemetry_Proto_Common_V1_KeyValue {
   }
 }
 
-// Loads the files produced by a run of Scripts/run-integration-tests.sh: the
-// OpenTelemetry Collector's `file` exporter in `proto` format, a stream of
-// 4-byte big-endian length prefixes each followed by an
-// Export<Signal>ServiceRequest. The base directory comes from
-// OTEL_INTEGRATION_OUTPUT_DIR, defaulting to ./out next to this package. Each
-// app launch of the run has its own subdirectory named after its launch tag;
-// `OTLPOutput.main` is the primary launch.
-struct OTLPOutput {
+// The telemetry one app launch of a run of Scripts/run-integration-tests.sh
+// exported, whichever backend the runner used. `OTLPOutput.main` is the primary
+// launch, `OTLPOutput.launch(...)` selects the others.
+//
+// With `--backend collector` (the default) each launch is read back from its
+// own directory under OTEL_INTEGRATION_OUTPUT_DIR, where the OpenTelemetry
+// Collector's `file` exporter wrote it. With `--backend grafana` each launch is
+// queried back out of Tempo by the `integration.run.id` and
+// `integration.launch` resource attributes the runner gave it. Both backends
+// hand the assertions the same ExportedSpan and ExportedLog.
+struct OTLPOutput: Sendable {
   static let outputDirectoryEnvironmentKey = "OTEL_INTEGRATION_OUTPUT_DIR"
+  static let backendEnvironmentKey = "OTEL_INTEGRATION_BACKEND"
+
+  enum Backend: String {
+    case collector
+    case grafana
+  }
+
+  static let backend: Backend = {
+    guard let raw = ProcessInfo.processInfo.environment[backendEnvironmentKey], !raw.isEmpty else {
+      return .collector
+    }
+    guard let backend = Backend(rawValue: raw) else {
+      fatalError("[IntegrationTests] \(backendEnvironmentKey)=\(raw) is not one of collector, grafana")
+    }
+    return backend
+  }()
 
   static let baseDirectory: URL = {
     if let path = ProcessInfo.processInfo.environment[outputDirectoryEnvironmentKey], !path.isEmpty {
@@ -72,76 +91,58 @@ struct OTLPOutput {
       .appendingPathComponent("out", isDirectory: true)
   }()
 
-  static let main = OTLPOutput(launch: Scenario.Launch.main)
+  static let main = OTLPOutput(slot: Scenario.Launch.main.rawValue)
 
   static func launch(_ launch: Scenario.Launch) -> OTLPOutput {
-    OTLPOutput(launch: launch)
+    OTLPOutput(slot: launch.rawValue)
   }
 
-  /// Output collected into a subdirectory other than a launch tag, e.g. `crash-examples/<type>`.
+  /// Output collected under a name other than a launch tag, e.g. `crash-examples/<type>`.
   static func subdirectory(_ path: String) -> OTLPOutput {
-    OTLPOutput(directory: baseDirectory.appendingPathComponent(path, isDirectory: true))
+    OTLPOutput(slot: path)
   }
 
   // Convenience accessors for the main launch, which most suites assert on.
   static var spans: [ExportedSpan] { main.spans }
   static var logs: [ExportedLog] { main.logs }
 
-  let directory: URL
+  let source: TelemetrySource
 
-  private init(launch: Scenario.Launch) {
-    directory = Self.baseDirectory.appendingPathComponent(launch.rawValue, isDirectory: true)
+  var spans: [ExportedSpan] { source.spans() }
+  var logs: [ExportedLog] { source.logs() }
+
+  private init(slot: String) {
+    source = Self.sources.source(for: slot)
   }
 
-  private init(directory: URL) {
-    self.directory = directory
-  }
+  // One source per slot per test process. The collector's files can be read
+  // again at no cost, but a remote backend must not be queried once per
+  // assertion, so the source that caches owns that decision.
+  private static let sources = SourceCache()
 
-  var spans: [ExportedSpan] {
-    Self.decodeMessages(file: directory.appendingPathComponent("traces.pb"),
-                        as: Opentelemetry_Proto_Collector_Trace_V1_ExportTraceServiceRequest.self)
-      .flatMap { request in
-        request.resourceSpans.flatMap { resourceSpans in
-          resourceSpans.scopeSpans.flatMap { scopeSpans in
-            scopeSpans.spans.map { ExportedSpan(resource: resourceSpans.resource.attributes, scope: scopeSpans.scope, span: $0) }
-          }
-        }
-      }
-  }
+  private final class SourceCache: @unchecked Sendable {
+    private let lock = NSLock()
+    private var bySlot: [String: TelemetrySource] = [:]
 
-  var logs: [ExportedLog] {
-    Self.decodeMessages(file: directory.appendingPathComponent("logs.pb"),
-                        as: Opentelemetry_Proto_Collector_Logs_V1_ExportLogsServiceRequest.self)
-      .flatMap { request in
-        request.resourceLogs.flatMap { resourceLogs in
-          resourceLogs.scopeLogs.flatMap { scopeLogs in
-            scopeLogs.logRecords.map { ExportedLog(resource: resourceLogs.resource.attributes, scope: scopeLogs.scope, record: $0) }
-          }
-        }
-      }
-  }
-
-  private static func decodeMessages<M: SwiftProtobuf.Message>(file url: URL, as type: M.Type) -> [M] {
-    guard let data = try? Data(contentsOf: url) else {
-      print("[IntegrationTests] missing \(url.path); run Scripts/run-integration-tests.sh first")
-      return []
+    func source(for slot: String) -> TelemetrySource {
+      lock.lock()
+      defer { lock.unlock() }
+      if let existing = bySlot[slot] { return existing }
+      let created = make(slot)
+      bySlot[slot] = created
+      return created
     }
-    var messages: [M] = []
-    var offset = data.startIndex
-    while offset + 4 <= data.endIndex {
-      let length = data[offset ..< offset + 4].reduce(0) { Int($0) << 8 | Int($1) }
-      offset += 4
-      guard offset + length <= data.endIndex else {
-        print("[IntegrationTests] truncated message in \(url.lastPathComponent)")
-        break
+
+    private func make(_ slot: String) -> TelemetrySource {
+      switch OTLPOutput.backend {
+      case .collector:
+        return CollectorFileSource(directory: OTLPOutput.baseDirectory
+          .appendingPathComponent(slot, isDirectory: true))
+      case .grafana:
+        return TempoSource(launch: slot,
+                           completionMarker: Scenario.completionSpanName,
+                           configuration: TempoSource.Configuration.fromEnvironment())
       }
-      do {
-        messages.append(try M(serializedBytes: data[offset ..< offset + length]))
-      } catch {
-        print("[IntegrationTests] could not decode message in \(url.lastPathComponent): \(error)")
-      }
-      offset += length
     }
-    return messages
   }
 }

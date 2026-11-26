@@ -24,6 +24,11 @@ service:
   telemetry:
     logs:
       level: warn
+    metrics:
+      # Off, because the collector's own Prometheus endpoint binds a fixed
+      # 127.0.0.1:8888 that --port cannot move, and a second collector then
+      # refuses to start. Nothing here reads these metrics.
+      level: none
   pipelines:
     traces:
       receivers: [otlp]

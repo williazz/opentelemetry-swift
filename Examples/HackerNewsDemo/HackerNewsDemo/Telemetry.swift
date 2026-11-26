@@ -53,6 +53,17 @@ enum TelemetryConfig {
   static let exporterHeaders: [(String, String)]? =
     EnvVarHeaders.attributes(for: setting("OTEL_EXPORTER_OTLP_HEADERS"))
 
+  /// The resource attributes in `OTEL_RESOURCE_ATTRIBUTES`, or nil when it is
+  /// not set. The SDK's own `EnvVarResource` reads that variable from the
+  /// process environment only, which a harness driving a device it does not own
+  /// cannot set, so this reads it through `setting(_:)` and parses it with the
+  /// same code. The integration test runner marks each launch with it so a
+  /// shared backend can tell one launch's spans from another's.
+  static var environmentResource: Resource? {
+    guard let value = setting("OTEL_RESOURCE_ATTRIBUTES") else { return nil }
+    return EnvVarResource.get(environment: ["OTEL_RESOURCE_ATTRIBUTES": value])
+  }
+
   static let defaultTracesEndpoint = collectorBaseURL.appendingPathComponent("v1/traces")
   static let defaultLogsEndpoint = collectorBaseURL.appendingPathComponent("v1/logs")
 
@@ -60,8 +71,11 @@ enum TelemetryConfig {
   // test mode where the runner controls the endpoints. Like the session
   // config, they are read once at startup.
   static var serviceName: String {
+    // A cloud run needs its own service name so its spans can be told apart in
+    // the backend, including in integration test mode.
+    if let name = setting("OTEL_SERVICE_NAME") { return name }
     if IntegrationTestScenario.isEnabled { return defaultServiceName }
-    return OTelConfigStore.serviceName ?? setting("OTEL_SERVICE_NAME") ?? defaultServiceName
+    return OTelConfigStore.serviceName ?? defaultServiceName
   }
 
   static var tracesEndpoint: URL {
@@ -106,7 +120,13 @@ enum Telemetry {
   static func start() {
     OpenTelemetry.setDebugEnabled(true)
 
-    let resource = DefaultResources().get().merging(other: Resource(attributes: [
+    // OTEL_RESOURCE_ATTRIBUTES is the base: the detected resource and the
+    // service name win over it, as the specification requires.
+    var resource = DefaultResources().get()
+    if let environmentResource = TelemetryConfig.environmentResource {
+      resource = environmentResource.merging(other: resource)
+    }
+    resource = resource.merging(other: Resource(attributes: [
       ResourceAttributes.serviceName.rawValue: .string(TelemetryConfig.serviceName),
       ResourceAttributes.serviceVersion.rawValue: .string(TelemetryConfig.serviceVersion)
     ]))
