@@ -1,0 +1,11 @@
+groups:
+  - id: swift.user
+    type: attribute_group
+    brief: >
+      The user attribute that `UserIdManager` attaches to every span and log record.
+      The attribute itself is upstream's; this group records that this library emits it,
+      so the generated constants cover every name the instrumentations use.
+    stability: development
+    attributes:
+      - ref: user.id
+        requirement_level: recommended
