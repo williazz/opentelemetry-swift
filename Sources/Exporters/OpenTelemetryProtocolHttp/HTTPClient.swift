@@ -69,6 +69,10 @@ public final class BaseHTTPClient: HTTPClient {
 /// An error returned if `URLSession` response state is inconsistent (like no data, no response and no error).
 struct HTTPClientError: Error, CustomStringConvertible {
   let description: String
+  /// The HTTP status of a rejected request. `nil` when no response arrived.
+  var statusCode: Int?
+  /// The delay the server asked for in its `Retry-After` header.
+  var retryAfter: TimeInterval?
 }
 
 /// Maps `URLSessionDataTask` response to `HTTPClient` response.
@@ -91,7 +95,9 @@ func httpClientResult(for taskResult: (Data?, URLResponse?, Error?)) -> Result<H
   guard (200..<300).contains(statusCode) else {
     return .failure(
       HTTPClientError(
-        description: "HTTP request failed with status code: \(statusCode)"
+        description: "HTTP request failed with status code: \(statusCode)",
+        statusCode: statusCode,
+        retryAfter: OtlpRetryPolicy.parseRetryAfter(httpResponse.value(forHTTPHeaderField: "Retry-After"))
       )
     )
   }

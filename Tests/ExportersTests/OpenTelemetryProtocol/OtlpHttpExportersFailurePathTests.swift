@@ -21,6 +21,8 @@ private final class StubHTTPClient: HTTPClient {
   enum Outcome {
     case success
     case failure(Error)
+    /// A rejected request, as `BaseHTTPClient` reports it.
+    case http(status: Int, retryAfter: TimeInterval? = nil)
   }
   var outcomes: [Outcome]
   private(set) var sentRequests: [URLRequest] = []
@@ -38,6 +40,8 @@ private final class StubHTTPClient: HTTPClient {
       completion(.success(resp))
     case .failure(let err):
       completion(.failure(err))
+    case let .http(status, retryAfter):
+      completion(.failure(HTTPClientError(description: "status \(status)", statusCode: status, retryAfter: retryAfter)))
     }
   }
 
@@ -52,6 +56,8 @@ private final class StubHTTPClient: HTTPClient {
                              headerFields: nil)!
     case .failure(let err):
       throw err
+    case let .http(status, retryAfter):
+      throw HTTPClientError(description: "status \(status)", statusCode: status, retryAfter: retryAfter)
     }
   }
 }
@@ -283,6 +289,27 @@ final class OtlpHttpLogExporterCoverageTests: XCTestCase {
     _ = exporter.export(logRecords: [sampleLogRecord()])
     XCTAssertEqual(exporter.flush(), .failure)
   }
+
+  func testExportDuringBackoffQueuesRecordsWithoutSending() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .success])
+    let clock = FakeClock()
+    let base = OtlpHttpExporterBase<ReadableLogRecord>(endpoint: defaultOltpHttpLoggingEndpoint(),
+                                                       httpClient: client,
+                                                       envVarHeaders: nil,
+                                                       now: clock.read)
+    let exporter = OtlpHttpLogExporter(base: base)
+
+    _ = exporter.export(logRecords: [sampleLogRecord()])
+    clock.advance(by: 0.5)
+    XCTAssertEqual(exporter.export(logRecords: [sampleLogRecord()]), .failure)
+    XCTAssertEqual(client.sentRequests.count, 1)
+    XCTAssertEqual(base.snapshotPending().count, 2)
+
+    clock.advance(by: 0.5)
+    XCTAssertEqual(exporter.export(logRecords: [sampleLogRecord()]), .success)
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
 }
 
 final class OtlpHttpTraceExporterCoverageTests: XCTestCase {
@@ -380,6 +407,191 @@ final class OtlpHttpTraceExporterCoverageTests: XCTestCase {
                                           httpClient: client,
                                           envVarHeaders: nil)
     XCTAssertNotNil(exporter)
+  }
+
+  // MARK: - Retry and backoff
+
+  private func makeRetryExporter(client: StubHTTPClient,
+                                 clock: FakeClock,
+                                 policy: OtlpRetryPolicy = .default)
+    -> (OtlpHttpTraceExporter, OtlpHttpExporterBase<SpanData>) {
+    let base = OtlpHttpExporterBase<SpanData>(endpoint: defaultOltpHttpTracesEndpoint(),
+                                              config: OtlpConfiguration(compression: .none),
+                                              httpClient: client,
+                                              envVarHeaders: nil,
+                                              retryPolicy: policy,
+                                              now: clock.read)
+    return (OtlpHttpTraceExporter(base: base), base)
+  }
+
+  private func spanCount(in request: URLRequest) throws -> Int {
+    let body = try XCTUnwrap(request.httpBody)
+    let message = try Opentelemetry_Proto_Collector_Trace_V1_ExportTraceServiceRequest(serializedBytes: body)
+    return message.resourceSpans.flatMap(\.scopeSpans).flatMap(\.spans).count
+  }
+
+  func testExportDoesNotSendDuringBackoffAndResumesAfterTheDelay() throws {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .success])
+    let clock = FakeClock()
+    let (exporter, base) = makeRetryExporter(client: client, clock: clock)
+
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .failure)
+    XCTAssertEqual(client.sentRequests.count, 1)
+
+    // 0.999 s after a 503, the one-second backoff still holds. The span waits in the queue.
+    clock.advance(by: 0.999)
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .failure)
+    XCTAssertEqual(client.sentRequests.count, 1, "no request may leave during the backoff")
+    XCTAssertEqual(base.snapshotPending().count, 2)
+
+    // At one second the exporter sends both spans in a single request.
+    clock.advance(by: 0.001)
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .success)
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(try spanCount(in: client.sentRequests[1]), 3)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
+
+  func testExportHonoursRetryAfterFromTheServer() {
+    let client = StubHTTPClient(outcomes: [.http(status: 429, retryAfter: 30), .success])
+    let clock = FakeClock()
+    let (exporter, _) = makeRetryExporter(client: client, clock: clock)
+
+    _ = exporter.export(spans: [sampleSpanData()])
+    clock.advance(by: 29.9)
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .failure)
+    XCTAssertEqual(client.sentRequests.count, 1)
+
+    clock.advance(by: 0.1)
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .success)
+    XCTAssertEqual(client.sentRequests.count, 2)
+  }
+
+  func testExportBackoffGrowsAcrossRepeatedServerFailures() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .http(status: 503), .http(status: 503), .success])
+    let clock = FakeClock()
+    let (exporter, _) = makeRetryExporter(client: client, clock: clock)
+
+    var sentAt: [TimeInterval] = []
+    var elapsed: TimeInterval = 0
+    // Offer a span every 0.5 s of fake time until the fourth request succeeds. Record when each leaves.
+    for _ in 0 ..< 15 {
+      let before = client.sentRequests.count
+      _ = exporter.export(spans: [sampleSpanData()])
+      if client.sentRequests.count > before { sentAt.append(elapsed) }
+      clock.advance(by: 0.5)
+      elapsed += 0.5
+    }
+
+    // Sends at 0 s, then 1 s, 3 s (1 + 2) and 7 s (1 + 2 + 4) after each failure.
+    XCTAssertEqual(sentAt, [0, 1, 3, 7])
+  }
+
+  func testPermanentRejectionDropsTheSpansAndSendsNoRetry() {
+    let client = StubHTTPClient(outcomes: [.http(status: 400), .success])
+    let (exporter, base) = makeRetryExporter(client: client, clock: FakeClock())
+
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .failure)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+    XCTAssertEqual(base.droppedSignalCount(), 1)
+
+    // No backoff follows, so the next export goes out at once, carrying only the new span.
+    XCTAssertEqual(exporter.export(spans: [sampleSpanData()]), .success)
+    XCTAssertEqual(client.sentRequests.count, 2)
+  }
+
+  func testSpansDropAfterTheRetryLimit() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .http(status: 503), .http(status: 503)])
+    let clock = FakeClock()
+    let (exporter, base) = makeRetryExporter(client: client, clock: clock, policy: OtlpRetryPolicy(maxRetries: 2))
+
+    _ = exporter.export(spans: [sampleSpanData()])
+    clock.advance(by: 1)
+    _ = exporter.export(spans: [])
+    clock.advance(by: 2)
+    _ = exporter.export(spans: [])
+
+    XCTAssertEqual(client.sentRequests.count, 3)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+    XCTAssertEqual(base.droppedSignalCount(), 1)
+  }
+
+  func testFlushIgnoresTheBackoffAndSendsOnce() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .success])
+    let (exporter, base) = makeRetryExporter(client: client, clock: FakeClock())
+
+    _ = exporter.export(spans: [sampleSpanData()])
+    XCTAssertEqual(exporter.flush(), .success)
+
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
+
+  func testShutdownSendsTheQueuedSpansDuringBackoff() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503), .success])
+    let (exporter, base) = makeRetryExporter(client: client, clock: FakeClock())
+
+    _ = exporter.export(spans: [sampleSpanData()])
+    // The batch processor's final export lands inside the backoff and joins the queue.
+    _ = exporter.export(spans: [sampleSpanData()])
+    XCTAssertEqual(client.sentRequests.count, 1)
+
+    exporter.shutdown()
+
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
+
+  func testShutdownReturnsWithinTheShutdownTimeoutWhenTheServerHangs() {
+    let client = HangingAfterFirstFailureHTTPClient()
+    let base = OtlpHttpExporterBase<SpanData>(endpoint: defaultOltpHttpTracesEndpoint(),
+                                              httpClient: client,
+                                              retryPolicy: OtlpRetryPolicy(shutdownTimeout: 0.1))
+    let exporter = OtlpHttpTraceExporter(base: base)
+    _ = exporter.export(spans: [sampleSpanData()])
+
+    let start = Date()
+    exporter.shutdown()
+
+    XCTAssertLessThan(Date().timeIntervalSince(start), 2)
+  }
+
+  func testExportDuringBackoffReturnsWithoutWaiting() {
+    let client = StubHTTPClient(outcomes: [.http(status: 503)])
+    let (exporter, _) = makeRetryExporter(client: client, clock: FakeClock())
+    _ = exporter.export(spans: [sampleSpanData()])
+
+    let start = Date()
+    _ = exporter.export(spans: [sampleSpanData()])
+
+    XCTAssertLessThan(Date().timeIntervalSince(start), 0.5)
+  }
+
+  func testQueueLargerThanTheBatchBoundLeavesInSeveralRequests() throws {
+    let client = StubHTTPClient(outcomes: [])
+    let (exporter, base) = makeRetryExporter(client: client, clock: FakeClock(),
+                                             policy: OtlpRetryPolicy(maxExportBatchSize: 2))
+
+    XCTAssertEqual(exporter.export(spans: (0 ..< 5).map { _ in sampleSpanData() }), .success)
+    XCTAssertEqual(try spanCount(in: client.sentRequests[0]), 2, "one request carries at most the bound")
+    XCTAssertEqual(base.snapshotPending().count, 3)
+
+    // flush empties the rest in as many requests as it needs.
+    XCTAssertEqual(exporter.flush(), .success)
+    XCTAssertEqual(try client.sentRequests.map(spanCount(in:)), [2, 2, 1])
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
+
+  func testPayloadTooLargeDropsOnlyOneBatchNotTheQueue() {
+    let client = StubHTTPClient(outcomes: [.http(status: 413)])
+    let (exporter, base) = makeRetryExporter(client: client, clock: FakeClock(),
+                                             policy: OtlpRetryPolicy(maxExportBatchSize: 2))
+
+    XCTAssertEqual(exporter.export(spans: (0 ..< 5).map { _ in sampleSpanData() }), .failure)
+
+    XCTAssertEqual(base.droppedSignalCount(), 2)
+    XCTAssertEqual(base.snapshotPending().count, 3, "the rest of the queue survives a 413")
+    XCTAssertFalse(base.deferIfBackingOff(adding: []))
   }
 }
 

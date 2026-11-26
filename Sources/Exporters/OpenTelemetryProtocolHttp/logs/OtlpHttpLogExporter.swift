@@ -31,16 +31,19 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
   ///    - httpClient: Custom HTTPClient implementation
   ///    - envVarHeaders: Extra header key-values
   ///    - requeueOnFailure: Re-append failed batches to the in-memory pending queue
+  ///    - retryPolicy: Backoff, attempt limit and queue bound for retries. See `OtlpRetryPolicy`.
   public convenience init(endpoint: URL = defaultOltpHttpLoggingEndpoint(),
                           config: OtlpConfiguration = OtlpConfiguration(),
                           httpClient: HTTPClient = BaseHTTPClient(),
                           envVarHeaders: [(String, String)]? = EnvVarHeaders.attributes,
-                          requeueOnFailure: Bool = true) {
+                          requeueOnFailure: Bool = true,
+                          retryPolicy: OtlpRetryPolicy = .default) {
     self.init(base: OtlpHttpExporterBase(endpoint: endpoint,
                                          config: config,
                                          httpClient: httpClient,
                                          envVarHeaders: envVarHeaders,
-                                         requeueOnFailure: requeueOnFailure))
+                                         requeueOnFailure: requeueOnFailure,
+                                         retryPolicy: retryPolicy))
   }
 
   /// A `convenience` constructor to provide support for exporter metric using`StableMeterProvider` type
@@ -51,17 +54,20 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
   ///    - httpClient: Custom HTTPClient implementation
   ///    - envVarHeaders: Extra header key-values
   ///    - requeueOnFailure: Re-append failed batches to the in-memory pending queue
+  ///    - retryPolicy: Backoff, attempt limit and queue bound for retries. See `OtlpRetryPolicy`.
   public convenience init(endpoint: URL = defaultOltpHttpLoggingEndpoint(),
                           config: OtlpConfiguration = OtlpConfiguration(),
                           meterProvider: any MeterProvider,
                           httpClient: HTTPClient = BaseHTTPClient(),
                           envVarHeaders: [(String, String)]? = EnvVarHeaders.attributes,
-                          requeueOnFailure: Bool = true) {
+                          requeueOnFailure: Bool = true,
+                          retryPolicy: OtlpRetryPolicy = .default) {
     self.init(endpoint: endpoint,
               config: config,
               httpClient: httpClient,
               envVarHeaders: envVarHeaders,
-              requeueOnFailure: requeueOnFailure)
+              requeueOnFailure: requeueOnFailure,
+              retryPolicy: retryPolicy)
     exporterMetrics = ExporterMetrics(type: "log",
                                       meterProvider: meterProvider,
                                       exporterName: "otlp",
@@ -73,6 +79,7 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
   public func export(logRecords: [OpenTelemetrySdk.ReadableLogRecord],
                      explicitTimeout: TimeInterval? = nil) -> OpenTelemetrySdk.ExportResult {
     var resultValue: ExportResult = .success
+    if base.deferIfBackingOff(adding: logRecords) { return .failure }
     let sendingLogRecords = base.drainPending(adding: logRecords)
 
     let body =
@@ -90,9 +97,10 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
       switch result {
       case .success:
         self?.exporterMetrics?.addSuccess(value: sendingLogRecords.count)
+        self?.base.recordSuccess()
       case let .failure(error):
         self?.exporterMetrics?.addFailed(value: sendingLogRecords.count)
-        self?.base.requeue(sendingLogRecords)
+        self?.base.recordFailure(of: sendingLogRecords, error: error)
         OpenTelemetry.instance.feedbackHandler?("\(error)")
         resultValue = .failure
       }
@@ -113,7 +121,8 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
 
   public func flush(explicitTimeout: TimeInterval? = nil) -> ExportResult {
     var exporterResult: ExportResult = .success
-    let pendingLogRecords = base.snapshotPending()
+    let started = Date()
+    let pendingLogRecords = base.snapshotNextBatch()
 
     if !pendingLogRecords.isEmpty {
       let sentCount = pendingLogRecords.count
@@ -131,9 +140,11 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
         case .success:
           self?.exporterMetrics?.addSuccess(value: sentCount)
           self?.base.dropFlushed(count: sentCount)
+          self?.base.recordSuccess()
           exporterResult = ExportResult.success
         case let .failure(error):
           self?.exporterMetrics?.addFailed(value: sentCount)
+          self?.base.recordFlushFailure(sentCount: sentCount, error: error)
           OpenTelemetry.instance.feedbackHandler?("\(error)")
           exporterResult = ExportResult.failure
         }
@@ -145,10 +156,19 @@ public final class OtlpHttpLogExporter: LogRecordExporter, @unchecked Sendable {
         exporterMetrics?.addFailed(value: sentCount)
         return .failure
       }
+      // A queue larger than one batch leaves in several requests, within the caller's time.
+      if exporterResult == .success, base.hasPending {
+        let left = explicitTimeout.map { $0 - Date().timeIntervalSince(started) }
+        if left == nil || left! > 0 { return flush(explicitTimeout: left) }
+      }
     }
 
     return exporterResult
   }
 
-  public func shutdown(explicitTimeout: TimeInterval? = nil) {}
+  /// Makes one last send of the queued signals, ignoring any backoff. The send waits no longer
+  /// than `explicitTimeout`, or `retryPolicy.shutdownTimeout` when the caller gives none.
+  public func shutdown(explicitTimeout: TimeInterval? = nil) {
+    _ = flush(explicitTimeout: explicitTimeout ?? base.retryPolicy.shutdownTimeout)
+  }
 }

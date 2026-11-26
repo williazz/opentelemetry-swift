@@ -219,4 +219,42 @@ final class OtlpHttpMetricExporterCoverageTests: XCTestCase {
                                           envVarHeaders: nil)
     XCTAssertNotNil(exporter)
   }
+
+  func testExportDuringBackoffQueuesMetricsWithoutSending() {
+    let rejection = HTTPClientError(description: "status 503", statusCode: 503, retryAfter: nil)
+    let client = StubHTTPClient(outcomes: [.failure(rejection), .success])
+    let clock = FakeClock()
+    let base = OtlpHttpExporterBase<MetricData>(endpoint: endpoint, httpClient: client,
+                                                envVarHeaders: nil, now: clock.read)
+    let exporter = OtlpHttpMetricExporter(base: base,
+                                          aggregationTemporalitySelector: AggregationTemporality.alwaysCumulative(),
+                                          defaultAggregationSelector: AggregationSelector.instance)
+
+    XCTAssertEqual(exporter.export(metrics: [.empty]), .failure)
+    clock.advance(by: 0.5)
+    XCTAssertEqual(exporter.export(metrics: [.empty]), .failure)
+    XCTAssertEqual(client.sentRequests.count, 1)
+    XCTAssertEqual(base.snapshotPending().count, 2)
+
+    clock.advance(by: 0.5)
+    XCTAssertEqual(exporter.export(metrics: [.empty]), .success)
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
+
+  func testShutdownSendsQueuedMetricsDuringBackoff() {
+    let rejection = HTTPClientError(description: "status 503", statusCode: 503, retryAfter: nil)
+    let client = StubHTTPClient(outcomes: [.failure(rejection), .success])
+    let base = OtlpHttpExporterBase<MetricData>(endpoint: endpoint, httpClient: client,
+                                                envVarHeaders: nil, now: FakeClock().read)
+    let exporter = OtlpHttpMetricExporter(base: base,
+                                          aggregationTemporalitySelector: AggregationTemporality.alwaysCumulative(),
+                                          defaultAggregationSelector: AggregationSelector.instance)
+    _ = exporter.export(metrics: [.empty])
+
+    XCTAssertEqual(exporter.shutdown(), .success)
+
+    XCTAssertEqual(client.sentRequests.count, 2)
+    XCTAssertEqual(base.snapshotPending().count, 0)
+  }
 }
