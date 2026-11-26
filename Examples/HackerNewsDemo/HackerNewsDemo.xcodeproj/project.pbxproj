@@ -10,13 +10,15 @@
 		DB286F482EC3007300F39808 /* OpenTelemetryProtocolExporterHTTP in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F472EC3007300F39808 /* OpenTelemetryProtocolExporterHTTP */; };
 		DB286F4A2EC3007300F39808 /* URLSessionInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F492EC3007300F39808 /* URLSessionInstrumentation */; };
 		DB286F4C2EC3007300F39808 /* Sessions in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F4B2EC3007300F39808 /* Sessions */; };
-		DB286FA12EC3007300F39808 /* UserId in Frameworks */ = {isa = PBXBuildFile; productRef = DB286FA02EC3007300F39808 /* UserId */; };
-		DB286F522EC3007300F39808 /* DeviceAttributesInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F512EC3007300F39808 /* DeviceAttributesInstrumentation */; };
+		DC0000012EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000022EC3007300F39808 /* MincoreLaunchInstrumentation */; };
+		DC0000032EC3007300F39808 /* UserId in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000042EC3007300F39808 /* UserId */; };
+		DC0000052EC3007300F39808 /* DeviceAttributesInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000062EC3007300F39808 /* DeviceAttributesInstrumentation */; };
+		DC0000072EC3007300F39808 /* AppHang in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000082EC3007300F39808 /* AppHang */; };
+		DC0000092EC3007300F39808 /* ScreenInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000102EC3007300F39808 /* ScreenInstrumentation */; };
+		DC0000112EC3007300F39808 /* ScreenInstrumentationUIKit in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000122EC3007300F39808 /* ScreenInstrumentationUIKit */; };
+		DC0000132EC3007300F39808 /* ScreenInstrumentationSwiftUI in Frameworks */ = {isa = PBXBuildFile; productRef = DC0000142EC3007300F39808 /* ScreenInstrumentationSwiftUI */; };
 		DB286F4E2EC3007300F39808 /* ResourceExtension in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F4D2EC3007300F39808 /* ResourceExtension */; };
 		DB286F502EC3007300F39808 /* Crash in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F4F2EC3007300F39808 /* Crash */; };
-		DB286F542EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F532EC3007300F39808 /* MincoreLaunchInstrumentation */; };
-		A17C4E022F10AA0100000002 /* AppHang in Frameworks */ = {isa = PBXBuildFile; productRef = A17C4E012F10AA0100000001 /* AppHang */; };
-		DB286F522EC3007300F39808 /* ScreenInstrumentation in Frameworks */ = {isa = PBXBuildFile; productRef = DB286F512EC3007300F39808 /* ScreenInstrumentation */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -39,13 +41,15 @@
 				DB286F482EC3007300F39808 /* OpenTelemetryProtocolExporterHTTP in Frameworks */,
 				DB286F4A2EC3007300F39808 /* URLSessionInstrumentation in Frameworks */,
 				DB286F4C2EC3007300F39808 /* Sessions in Frameworks */,
-				DB286FA12EC3007300F39808 /* UserId in Frameworks */,
-				DB286F522EC3007300F39808 /* DeviceAttributesInstrumentation in Frameworks */,
+				DC0000012EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */,
+				DC0000032EC3007300F39808 /* UserId in Frameworks */,
+				DC0000052EC3007300F39808 /* DeviceAttributesInstrumentation in Frameworks */,
+				DC0000072EC3007300F39808 /* AppHang in Frameworks */,
+				DC0000092EC3007300F39808 /* ScreenInstrumentation in Frameworks */,
+				DC0000112EC3007300F39808 /* ScreenInstrumentationUIKit in Frameworks */,
+				DC0000132EC3007300F39808 /* ScreenInstrumentationSwiftUI in Frameworks */,
 				DB286F4E2EC3007300F39808 /* ResourceExtension in Frameworks */,
 				DB286F502EC3007300F39808 /* Crash in Frameworks */,
-				DB286F542EC3007300F39808 /* MincoreLaunchInstrumentation in Frameworks */,
-				A17C4E022F10AA0100000002 /* AppHang in Frameworks */,
-				DB286F522EC3007300F39808 /* ScreenInstrumentation in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -99,13 +103,15 @@
 				DB286F472EC3007300F39808 /* OpenTelemetryProtocolExporterHTTP */,
 				DB286F492EC3007300F39808 /* URLSessionInstrumentation */,
 				DB286F4B2EC3007300F39808 /* Sessions */,
-				DB286FA02EC3007300F39808 /* UserId */,
-				DB286F512EC3007300F39808 /* DeviceAttributesInstrumentation */,
+				DC0000022EC3007300F39808 /* MincoreLaunchInstrumentation */,
+				DC0000042EC3007300F39808 /* UserId */,
+				DC0000062EC3007300F39808 /* DeviceAttributesInstrumentation */,
+				DC0000082EC3007300F39808 /* AppHang */,
+				DC0000102EC3007300F39808 /* ScreenInstrumentation */,
+				DC0000122EC3007300F39808 /* ScreenInstrumentationUIKit */,
+				DC0000142EC3007300F39808 /* ScreenInstrumentationSwiftUI */,
 				DB286F4D2EC3007300F39808 /* ResourceExtension */,
 				DB286F4F2EC3007300F39808 /* Crash */,
-				DB286F532EC3007300F39808 /* MincoreLaunchInstrumentation */,
-				A17C4E012F10AA0100000001 /* AppHang */,
-				DB286F512EC3007300F39808 /* ScreenInstrumentation */,
 			);
 			productName = HackerNewsDemo;
 			productReference = 306BC6982E00C6AA00F19E48 /* HackerNewsDemo.app */;
@@ -410,14 +416,40 @@
 			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
 			productName = Sessions;
 		};
-		DB286FA02EC3007300F39808 /* UserId */ = {
+		DC0000022EC3007300F39808 /* MincoreLaunchInstrumentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = MincoreLaunchInstrumentation;
+		};
+		DC0000042EC3007300F39808 /* UserId */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
 			productName = UserId;
-		DB286F512EC3007300F39808 /* DeviceAttributesInstrumentation */ = {
+		};
+		DC0000062EC3007300F39808 /* DeviceAttributesInstrumentation */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
 			productName = DeviceAttributesInstrumentation;
+		};
+		DC0000082EC3007300F39808 /* AppHang */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = AppHang;
+		};
+		DC0000102EC3007300F39808 /* ScreenInstrumentation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = ScreenInstrumentation;
+		};
+		DC0000122EC3007300F39808 /* ScreenInstrumentationUIKit */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = ScreenInstrumentationUIKit;
+		};
+		DC0000142EC3007300F39808 /* ScreenInstrumentationSwiftUI */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
+			productName = ScreenInstrumentationSwiftUI;
 		};
 		DB286F4D2EC3007300F39808 /* ResourceExtension */ = {
 			isa = XCSwiftPackageProductDependency;
@@ -428,19 +460,6 @@
 			isa = XCSwiftPackageProductDependency;
 			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
 			productName = Crash;
-		};
-		DB286F532EC3007300F39808 /* MincoreLaunchInstrumentation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
-			productName = MincoreLaunchInstrumentation;
-		A17C4E012F10AA0100000001 /* AppHang */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
-			productName = AppHang;
-		DB286F512EC3007300F39808 /* ScreenInstrumentation */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 5E6803F12E1306FC00D1DBD3 /* XCLocalSwiftPackageReference "../.." */;
-			productName = ScreenInstrumentation;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

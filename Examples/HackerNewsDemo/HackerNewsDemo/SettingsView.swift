@@ -4,6 +4,7 @@
  */
 
 import ScreenInstrumentation
+import ScreenInstrumentationSwiftUI
 import SwiftUI
 import Sessions
 import UserId
@@ -25,15 +26,6 @@ struct SettingsView: View {
   @State private var showingMemoryTest = false
   @State private var screenData: [(String, String)] = []
   @State private var timer: Timer?
-
-  // Entries whose instrumentation is not available in this repo yet. They are
-  // shown disabled so nobody expects telemetry from them; the picker views
-  // stay in the file for when the instrumentations land.
-  private static let comingSoon: Set<String> = [
-    "Trigger App Hang"
-    "CPU Test",
-    "Memory Test"
-  ]
 
   var body: some View {
     List {
@@ -84,11 +76,8 @@ struct SettingsView: View {
 
       Section("Troubleshooting") {
         ForEach(troubleshootingData, id: \.0) { item in
-          if Self.comingSoon.contains(item.0) {
-            ComingSoonRow(title: item.0)
-          } else {
-            Button(action: {
-              if item.0 == "Trigger App Hang" {
+          Button(action: {
+            if item.0 == "Trigger App Hang" {
                 showingHangPicker = true
               } else if item.0 == "Trigger App Crash" {
                 showingCrashPicker = true
@@ -118,8 +107,7 @@ struct SettingsView: View {
                   .font(.caption)
               }
             }
-            .help("Tap to run load test with custom logs and spans")
-          }
+          .help("Tap to run load test with custom logs and spans")
         }
       }
     }
@@ -595,32 +583,6 @@ struct EditableRow: View {
       }
     }
     .help(help)
-  }
-}
-
-struct ComingSoonRow: View {
-  let title: String
-
-  var body: some View {
-    HStack {
-      Text(title)
-        .font(.system(.caption, design: .monospaced, weight: .medium))
-        .foregroundColor(.secondary)
-      Spacer(minLength: 20)
-      Text("Coming soon")
-        .font(.system(.caption2, design: .monospaced, weight: .medium))
-        .foregroundColor(.secondary)
-        .padding(.horizontal, 8)
-        .padding(.vertical, 3)
-        .background(Color.secondary.opacity(0.15))
-        .clipShape(Capsule())
-      Image(systemName: "clock")
-        .foregroundColor(.secondary)
-        .font(.caption)
-    }
-    .opacity(0.6)
-    .accessibilityElement(children: .combine)
-    .accessibilityLabel("\(title), coming soon")
   }
 }
 

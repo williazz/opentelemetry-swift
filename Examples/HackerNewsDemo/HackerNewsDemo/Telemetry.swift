@@ -14,6 +14,7 @@ import OpenTelemetryProtocolExporterHttp
 import OpenTelemetrySdk
 import ResourceExtension
 import ScreenInstrumentation
+import ScreenInstrumentationUIKit
 import Sessions
 import UserId
 import URLSessionInstrumentation
@@ -102,6 +103,8 @@ enum TelemetryConfig {
   // choose it with `--httpSemanticConvention`.
   static var httpSemanticConvention: HTTPSemanticConvention {
     IntegrationTestScenario.isEnabled ? IntegrationTestScenario.httpSemanticConvention : .old
+  }
+
   /// Symbol names are on, so a hang's stack trace reads as sent: this app has no backend that
   /// symbolicates from its dSYMs. Hangs are recorded under a debugger too, so a hang triggered
   /// from an Xcode run still reports.
@@ -185,7 +188,7 @@ enum Telemetry {
     // Installed after the providers are registered, because the first screen appears right
     // after this returns. Swizzling UIViewController reports the UIKit screens; the Settings
     // tab is SwiftUI and reports itself through .otelScreen in SettingsView.
-    ScreenInstrumentation.install()
+    ScreenInstrumentationUIKit.install()
 
     // Installed after the session manager and logger provider are registered:
     // crashes from the previous run are reported on install, and each crash
