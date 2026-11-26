@@ -92,6 +92,7 @@ let package = Package(
       targets: ["BaggagePropagationProcessor"]
     ),
     .library(name: "Sessions", targets: ["Sessions"]),
+    .library(name: "UserId", targets: ["UserId"]),
     .executable(name: "ConcurrencyContext", targets: ["ConcurrencyContext"]),
     .executable(name: "loggingTracer", targets: ["LoggingTracer"]),
     .executable(name: "StableMetricSample", targets: ["StableMetricSample"]),
@@ -271,6 +272,15 @@ let package = Package(
       exclude: ["README.md", "generate.sh", "model", "templates"]
     ),
     .target(
+      name: "UserId",
+      dependencies: [
+        "OpenTelemetryApi",
+        "OpenTelemetrySdk",
+      ],
+      path: "Sources/Instrumentation/UserId",
+      exclude: ["README.md"]
+    ),
+    .target(
       name: "SharedTestUtils",
       dependencies: [
         "OpenTelemetryApi",
@@ -382,6 +392,16 @@ let package = Package(
         "OpenTelemetrySdk",
       ],
       path: "Tests/InstrumentationTests/SessionTests"
+    ),
+    .testTarget(
+      name: "UserIdTests",
+      dependencies: [
+        "SharedTestUtils",
+        "UserId",
+        "OpenTelemetrySdk",
+        "InMemoryExporter",
+      ],
+      path: "Tests/InstrumentationTests/UserIdTests"
     ),
     .executableTarget(
       name: "ConcurrencyContext",

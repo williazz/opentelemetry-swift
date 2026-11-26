@@ -44,6 +44,9 @@ enum Scenario {
     case appStartUpdate = "app-start-update"
     case appStartReinstall = "app-start-reinstall"
     case appStartMincore = "app-start-mincore"
+    case userIdSet = "user-id-set"
+    case userIdRestored = "user-id-restored"
+    case userIdCleared = "user-id-cleared"
   }
 
   // Session config the runner passes to each launch.

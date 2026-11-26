@@ -12,6 +12,7 @@ import OpenTelemetryProtocolExporterHttp
 import OpenTelemetrySdk
 import ResourceExtension
 import Sessions
+import UserId
 import URLSessionInstrumentation
 
 enum TelemetryConfig {
@@ -100,6 +101,10 @@ enum Telemetry {
 
     SessionManagerProvider.register(sessionManager: SessionManager(configuration: TelemetryConfig.sessionConfig))
 
+    // Restores the user ID the person set on an earlier launch. Nothing is attached
+    // until a user ID is set in Settings.
+    UserIdManagerProvider.register(userIdManager: UserIdManager())
+
     // Captured once: endpoints edited in Settings only take effect on next
     // launch, so the exporters and the instrumentation filter must agree on
     // the URLs in use now.
@@ -112,6 +117,7 @@ enum Telemetry {
       TracerProviderBuilder()
         .with(resource: resource)
         .add(spanProcessor: SessionSpanProcessor())
+        .add(spanProcessor: UserIdSpanProcessor())
         .add(spanProcessor: BatchSpanProcessor(spanExporter: spanExporter))
         .build()
     )
@@ -122,7 +128,8 @@ enum Telemetry {
       LoggerProviderBuilder()
         .with(resource: resource)
         .with(processors: [
-          SessionLogRecordProcessor(nextProcessor: BatchLogRecordProcessor(logRecordExporter: logExporter))
+          UserIdLogRecordProcessor(nextProcessor:
+            SessionLogRecordProcessor(nextProcessor: BatchLogRecordProcessor(logRecordExporter: logExporter)))
         ])
         .build()
     )
@@ -152,7 +159,6 @@ enum Telemetry {
 
     // TODO: no app hang instrumentation
     // TODO: no UIKit/SwiftUI view instrumentation
-    // TODO: no user ID manager; see UserIdStore
   }
 }
 
@@ -222,19 +228,5 @@ enum SessionConfigStore {
       defaults.removeObject(forKey: maxLifetimeKey)
     }
     defaults.set(restorePersistedSession, forKey: restoreKey)
-  }
-}
-
-// TODO: stand-in until a user ID instrumentation exists.
-// This only persists the value; nothing attaches it to telemetry.
-enum UserIdStore {
-  private static let key = "HackerNewsDemo.userId"
-
-  static func getUID() -> String {
-    UserDefaults.standard.string(forKey: key) ?? "nil"
-  }
-
-  static func setUID(_ uid: String) {
-    UserDefaults.standard.set(uid, forKey: key)
   }
 }

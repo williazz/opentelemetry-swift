@@ -7,6 +7,7 @@ import UIKit
 import SwiftUI
 import Foundation
 import Sessions
+import UserId
 import OpenTelemetryApi
 
 let artificialDelay: TimeInterval = 0.25
@@ -2124,7 +2125,7 @@ class SettingsViewController: UIViewController {
     }
 
     let expireTime = currentSession.expireTime
-    let userId = UserIdStore.getUID()
+    let userId = UserIdManagerProvider.getInstance().userId ?? "nil"
     let timeToExpiry = expireTime.timeIntervalSinceNow
     let previousSessionId = SessionManagerProvider.getInstance().peekSession()?.previousId ?? "nil"
 

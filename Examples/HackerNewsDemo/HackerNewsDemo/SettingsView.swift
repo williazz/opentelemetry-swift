@@ -5,6 +5,7 @@
 
 import SwiftUI
 import Sessions
+import UserId
 import OpenTelemetryApi
 
 struct SettingsView: View {
@@ -60,8 +61,9 @@ struct SettingsView: View {
       Section("User Session") {
         ForEach(sessionData, id: \.0) { item in
           if item.0 == "User ID" {
-            // TODO: enable once a user ID instrumentation exists; see UserIdStore.
-            ComingSoonRow(title: item.0)
+            EditableRow(title: item.0, value: item.1, help: "Tap to set or clear the user ID attached to telemetry") {
+              showingUserIdEditor = true
+            }
           } else if item.0 == "Session Config" {
             EditableRow(title: item.0, value: item.1, help: "Tap to edit session timeout, max lifetime and restore behavior") {
               showingSessionConfigEditor = true
@@ -197,7 +199,7 @@ struct SettingsView: View {
     }
 
     let expireTime = currentSession.expireTime
-    let userId = UserIdStore.getUID()
+    let userId = UserIdManagerProvider.getInstance().userId ?? "nil"
     let timeToExpiry = expireTime.timeIntervalSinceNow
     let previousSessionId = SessionManagerProvider.getInstance().peekSession()?.previousId ?? "nil"
 
@@ -253,9 +255,10 @@ struct UserIdEditorView: View {
           Text("Edit User ID")
             .font(.system(.headline, design: .monospaced, weight: .medium))
 
-          Text("Enter a custom user ID")
+          Text("The ID is attached to every span and log record. It is personal data: use an opaque value, not an email address or name.")
             .font(.system(.caption, design: .monospaced))
             .foregroundColor(.secondary)
+            .multilineTextAlignment(.center)
         }
         .padding(.top, 16)
         .frame(maxWidth: .infinity, alignment: .center)
@@ -271,7 +274,9 @@ struct UserIdEditorView: View {
 
         HStack(spacing: 16) {
           Button("Clear") {
+            UserIdManagerProvider.getInstance().clearUserId()
             userId = ""
+            dismiss()
           }
           .foregroundColor(.white)
           .padding(.horizontal, 24)
@@ -280,7 +285,7 @@ struct UserIdEditorView: View {
           .cornerRadius(8)
 
           Button("Save") {
-            UserIdStore.setUID(userId)
+            UserIdManagerProvider.getInstance().setUserId(userId)
             showingToast = true
             dismiss()
           }
@@ -305,7 +310,7 @@ struct UserIdEditorView: View {
         }
       }
       .onAppear {
-        userId = UserIdStore.getUID()
+        userId = UserIdManagerProvider.getInstance().userId ?? ""
       }
     }
     .overlay(

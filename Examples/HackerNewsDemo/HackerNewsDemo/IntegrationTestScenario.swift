@@ -13,6 +13,7 @@ import OpenTelemetrySdk
 import Sessions
 import UIKit
 import URLSessionInstrumentation
+import UserId
 
 // Driven by Scripts/run-integration-tests.sh. When the app is launched with
 // `--integrationTestMode` it produces a fixed set of telemetry against the local
@@ -46,6 +47,11 @@ enum IntegrationTestScenario {
     "symbolicated-side-by-side": .symbolicatedSideBySide,
     "symbolicated": .symbolicated,
   ]
+
+  // Optional: sets this user ID before the launch emits telemetry.
+  static let userIdArgument = "--userId"
+  // Optional: clears the user ID before the launch emits telemetry.
+  static let clearUserIdArgument = "--clearUserId"
 
   static let scope = "HackerNewsDemo.IntegrationTest"
 
@@ -126,6 +132,11 @@ enum IntegrationTestScenario {
     // The simulator shares the Mac's page cache, so the type isn't predictable, but it must agree
     // with the span's sampled pages.
     case appStartMincore = "app-start-mincore"
+    // User ID launches run last and in this order: the first sets an ID, the
+    // second must read it back from storage, the third clears it.
+    case userIdSet = "user-id-set"
+    case userIdRestored = "user-id-restored"
+    case userIdCleared = "user-id-cleared"
   }
 
   // Default session timeout for the main launch: short enough that the
@@ -201,6 +212,12 @@ enum IntegrationTestScenario {
   static func run() {
     let tracer = OpenTelemetry.instance.tracerProvider.get(instrumentationName: scope)
     recordLifecycle(tracer: tracer)
+    if let userId = value(after: userIdArgument) {
+      UserIdManagerProvider.getInstance().setUserId(userId)
+    }
+    if arguments.contains(clearUserIdArgument) {
+      UserIdManagerProvider.getInstance().clearUserId()
+    }
     switch launch {
     case .main, .mainStable:
       runMain(tracer: tracer)
@@ -236,6 +253,16 @@ enum IntegrationTestScenario {
         // The stored crash is reported asynchronously on install; give its log
         // record time to reach the batch processor before signalling completion.
         Thread.sleep(forTimeInterval: 2)
+        complete(tracer: tracer)
+      }
+    case .userIdSet, .userIdRestored, .userIdCleared:
+      DispatchQueue.global().async {
+        span(tracer, probeSpanName).end()
+        OpenTelemetry.instance.loggerProvider.get(instrumentationScopeName: scope).logRecordBuilder()
+          .setEventName(logEventName)
+          .setBody(.string(logBody))
+          .setSeverity(.info)
+          .emit()
         complete(tracer: tracer)
       }
     case .logLimits:

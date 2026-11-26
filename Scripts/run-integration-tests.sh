@@ -390,6 +390,10 @@ else
   # Copies the same original build, so this reinstalls the build just launched.
   install_new_build
   run_launch app-start-reinstall
+  # The app keeps the user ID in UserDefaults, so these run last and in order.
+  run_launch user-id-set --sessionTimeout 3600 --userId integration-user-1
+  run_launch user-id-restored --sessionTimeout 3600
+  run_launch user-id-cleared --sessionTimeout 3600 --clearUserId
 fi
 
 log "Collected files"
