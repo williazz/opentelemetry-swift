@@ -1,0 +1,44 @@
+groups:
+  - id: registry.swift.device_state
+    type: attribute_group
+    brief: >
+      The state of the device and process when a span starts or a log record is emitted, recorded
+      by `DeviceAttributesInstrumentation`.
+    stability: development
+    attributes:
+      - id: hw.battery.charge
+        type: double
+        stability: development
+        brief: >
+          The fraction of charge the device's battery holds, from 0 to 1.
+        note: >
+          Upstream semantic conventions define `hw.battery.charge` as a metric, not an attribute,
+          with the unit `1` and the same meaning. This attribute carries that metric's value at the
+          moment the signal is recorded, because a client-side SDK doesn't export every sample.
+
+          Absent when the platform doesn't report a level: every platform except iOS, and a
+          simulator, where UIKit reports -1.
+      - id: process.cpu.utilization
+        type: double
+        stability: development
+        brief: >
+          The share of the device's CPU capacity the process was using, from 0 to 1.
+        note: >
+          Upstream semantic conventions define `process.cpu.utilization` as a metric, not an
+          attribute, with the unit `1`. Like that metric it is divided by the number of CPUs
+          available to the process, so 1 means every core is fully busy.
+
+          Unlike that metric it is a snapshot, not the difference between two readings of
+          `process.cpu.time`: the sum of the kernel's per-thread usage, which the kernel
+          decays over about a second. It is read at most once a second, so a signal records the
+          value read up to one second earlier.
+      - id: process.memory.usage
+        type: int
+        stability: development
+        brief: >
+          The resident memory of the process, in bytes.
+        note: >
+          Upstream semantic conventions define `process.memory.usage` as a metric, not an
+          attribute, with the unit `By`. This attribute carries the same quantity, the resident set
+          size from `MACH_TASK_BASIC_INFO`, at the moment the signal is recorded. It is read at
+          most once a second, so a signal records the value read up to one second earlier.

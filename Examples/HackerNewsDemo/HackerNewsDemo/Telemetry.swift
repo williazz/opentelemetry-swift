@@ -5,6 +5,7 @@
 
 import MincoreLaunchInstrumentation
 import Crash
+import DeviceAttributesInstrumentation
 import Foundation
 import OpenTelemetryApi
 import OpenTelemetryProtocolExporterCommon
@@ -118,6 +119,7 @@ enum Telemetry {
         .with(resource: resource)
         .add(spanProcessor: SessionSpanProcessor())
         .add(spanProcessor: UserIdSpanProcessor())
+        .add(spanProcessor: DeviceAttributesSpanProcessor())
         .add(spanProcessor: BatchSpanProcessor(spanExporter: spanExporter))
         .build()
     )
@@ -129,7 +131,10 @@ enum Telemetry {
         .with(resource: resource)
         .with(processors: [
           UserIdLogRecordProcessor(nextProcessor:
-            SessionLogRecordProcessor(nextProcessor: BatchLogRecordProcessor(logRecordExporter: logExporter)))
+            SessionLogRecordProcessor(nextProcessor:
+              DeviceAttributesLogRecordProcessor(
+                nextProcessor: BatchLogRecordProcessor(logRecordExporter: logExporter)
+              )))
         ])
         .build()
     )
@@ -141,6 +146,9 @@ enum Telemetry {
     if !IntegrationTestScenario.installsAppLaunchLate {
       MincoreLaunchInstrumentation.install()
     }
+    // Starts battery monitoring, which reads UIKit on the main thread, so it runs where
+    // `Telemetry.start()` does, in didFinishLaunching.
+    DeviceAttributesInstrumentation.install()
 
     // Installed after the session manager and logger provider are registered:
     // crashes from the previous run are reported on install, and each crash

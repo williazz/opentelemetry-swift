@@ -28,9 +28,7 @@ struct SettingsView: View {
   // shown disabled so nobody expects telemetry from them; the picker views
   // stay in the file for when the instrumentations land.
   private static let comingSoon: Set<String> = [
-    "Trigger App Hang",
-    "CPU Test",
-    "Memory Test"
+    "Trigger App Hang"
   ]
 
   var body: some View {

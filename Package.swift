@@ -93,6 +93,7 @@ let package = Package(
     ),
     .library(name: "Sessions", targets: ["Sessions"]),
     .library(name: "UserId", targets: ["UserId"]),
+    .library(name: "DeviceAttributesInstrumentation", targets: ["DeviceAttributesInstrumentation"]),
     .executable(name: "ConcurrencyContext", targets: ["ConcurrencyContext"]),
     .executable(name: "loggingTracer", targets: ["LoggingTracer"]),
     .executable(name: "StableMetricSample", targets: ["StableMetricSample"]),
@@ -281,6 +282,16 @@ let package = Package(
       exclude: ["README.md", "img"]
     ),
     .target(
+      name: "DeviceAttributesInstrumentation",
+      dependencies: [
+        "OpenTelemetryApi",
+        "OpenTelemetrySdk",
+        "InstrumentationSemanticConventions",
+      ],
+      path: "Sources/Instrumentation/DeviceAttributes",
+      exclude: ["README.md"]
+    ),
+    .target(
       name: "SharedTestUtils",
       dependencies: [
         "OpenTelemetryApi",
@@ -402,6 +413,16 @@ let package = Package(
         "InMemoryExporter",
       ],
       path: "Tests/InstrumentationTests/UserIdTests"
+    ),
+    .testTarget(
+      name: "DeviceAttributesTests",
+      dependencies: [
+        "DeviceAttributesInstrumentation",
+        "InMemoryExporter",
+        "OpenTelemetrySdk",
+        "SharedTestUtils",
+      ],
+      path: "Tests/InstrumentationTests/DeviceAttributesTests"
     ),
     .executableTarget(
       name: "ConcurrencyContext",
