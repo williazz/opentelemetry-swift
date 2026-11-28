@@ -6,7 +6,7 @@ The **`MincoreLaunchInstrumentation`** class records how long the app takes to b
 
 A process records at most one launch, so there is at most one `app.start` span per process. The start types follow Apple's definitions rather than Android's.
 
-![Timeline of the app.start and app.resume spans. One bar spans process start to the first frame displayed. Below it three phase bars divide the same interval: app.start.pre_init ends where the app runs this library's static initializer, app.start.app_init ends at didFinishLaunching, and app.start.render ends at the first frame. app.start.scene_setup sits under app.start.render and starts at UIScene.willConnectNotification. A second row shows a prewarmed launch, whose span starts where app code first ran, with app.start.pre_activation.duration recorded outside it. A third row shows a resume, running from willEnterForeground, or from UIScene.willConnectNotification when the system discarded the scene, to the first frame, with an app.resume.scene_setup child and app.resume.background_duration recorded outside it.](img/app-start-timeline.svg)
+![Timeline of the app.start and app.resume spans. One bar spans process start to the first frame displayed. Below it three phase bars divide the same interval: app.start.pre_init ends where the app runs this library's static initializer, app.start.app_init ends at didFinishLaunching, and app.start.render ends at the first frame. app.start.scene_setup sits under app.start.render and starts at UIScene.willConnectNotification. A second row shows a prewarmed launch, whose span starts where app code first ran, with app.start.pre_activation.duration recorded outside it. A third row shows a resume, running from willEnterForeground, or from UIScene.willConnectNotification when the system discarded the scene, to the first frame, with an app.resume.scene_setup child and app.resume.background.duration recorded outside it.](img/app-start-timeline.svg)
 
 ## Setup
 
@@ -39,7 +39,7 @@ MincoreLaunchInstrumentation.install(
 <dd>A number above 0 and at most 1 giving the share of sampled code a launch must page in from disk to count as <code>cold</code>. Defaults to <code>0.5</code>. Note that how high the ratio goes depends on the app, so check the ratios yours reports before changing this.</dd>
 </dl>
 
-Spans also carry `session.id` and `session.previous_id` once you register the [Sessions](../Sessions/README.md) span processor. To see why the library recorded a start, or why it did not, turn on [debug logging](docs/lifecycle.md#debugging).
+To see why the library recorded a start, or why it did not, turn on [debug logging](docs/lifecycle.md#debugging).
 
 ## `app.start` and `app.resume`
 
@@ -105,7 +105,82 @@ The `app.resume.type` attribute can have the following values. Each describes a 
 <dt><code>scene_reconnect</code></dt>
 <dd>A return to the foreground after the system discarded the app's scene, so UIKit connects a new one.</dd>
 <dt><code>background_launched</code></dt>
-<dd>The first time the app reaches the foreground after the system started the process in the background. Note that such a resume has no page baseline, so it reports none of the <code>app.resume.pages.text.*</code> attributes.</dd>
+<dd>The first time the app reaches the foreground after the system started the process in the background. Note that such a resume has no page baseline, so it reports <code>app.resume.pages.text.total</code> alone.</dd>
+</dl>
+
+## Attributes
+
+The [federated registry](../SemanticConventions/model/swift/registry.yaml) defines every attribute below at `development` stability. A child span carries none of them: each phase's duration is copied onto its root span instead, so a query needs no join.
+
+Both spans also carry the following attributes once you register the [Sessions](../Sessions/README.md) span processor.
+
+<dl>
+<dt><code>session.id</code></dt>
+<dd>A string identifying the session the span belongs to.</dd>
+<dt><code>session.previous_id</code></dt>
+<dd>A string identifying the session before it, where there was one.</dd>
+</dl>
+
+### `app.start`
+
+A launch span carries the following attributes. The `app.start.pages.text` counts come from the page sample, so a launch classified from [launch history](docs/classification.md#launch-history-fallback) reports `app.start.pages.text.total` alone, which the library reads from the binary.
+
+<dl>
+<dt><code>app.start.app_init.duration</code></dt>
+<dd>A number of seconds giving the duration of the <code>app.start.app_init</code> child span.</dd>
+<dt><code>app.start.determined_by</code></dt>
+<dd>A string naming what decided <code>app.start.type</code>. Either <code>page_sampling</code>, from the page-in ratio, <code>launch_history</code>, from what changed since the previous launch, or <code>prewarm_flag</code>, from the <code>ActivePrewarm</code> environment variable. See <a href="docs/classification.md">How the launch type is decided</a>.</dd>
+<dt><code>app.start.outcome</code></dt>
+<dd>A string giving how the launch ended. Either <code>completed</code>, meaning it reached its first frame, or <code>abandoned</code>, meaning the app left the foreground first.</dd>
+<dt><code>app.start.page_ins.after_text_sample</code></dt>
+<dd>A number of page-ins the whole process took from the page sample's baseline to the end of the span. It covers the window <code>app.start.pages.text.paged_in</code> measures, for the whole process rather than the app's own code, so it is the larger of the two.</dd>
+<dt><code>app.start.page_ins.before_text_sample</code></dt>
+<dd>A number of page-ins the whole process took from process start to the page sample's baseline, which the library takes before <code>main()</code>. This is the window <code>app.start.pages.text.paged_in</code> cannot see, because a page read in it is already resident in the baseline. Both counts hold page-ins, the faults that read a page from a backing store, and leave out minor faults such as zero-fill and copy-on-write.</dd>
+<dt><code>app.start.pages.text.page_in_ratio</code></dt>
+<dd>A number from 0 to 1 giving the share of the sampled code the launch paged in from disk: <code>app.start.pages.text.paged_in</code> divided by <code>app.start.pages.text.resident_at_end</code>. A launch is <code>cold</code> when the ratio reaches <code>coldPageInRatio</code>, and this is the measurement behind that verdict, so a consumer that prefers another line can recalculate from it.</dd>
+<dt><code>app.start.pages.text.paged_in</code></dt>
+<dd>A number of sampled pages that were resident when the app became active but not when this library's initializer ran.</dd>
+<dt><code>app.start.pages.text.resident_at_end</code></dt>
+<dd>A number of sampled pages of the app's code that were in the system's page cache when the app became active. <code>mincore</code> reports the cache rather than this process, so the count includes pages an earlier launch left and pages the kernel read ahead.</dd>
+<dt><code>app.start.pages.text.sampled</code></dt>
+<dd>A number of pages of the app's code the launch sampled: up to 256, spread evenly through the <code>__TEXT</code> segments of the app's own images.</dd>
+<dt><code>app.start.pages.text.total</code></dt>
+<dd>A number of pages of the app's code that could be sampled, whether or not the sample covered them. Against <code>app.start.pages.text.sampled</code> it says what share of the app's code the sample stands for, because the cap covers a large app more thinly than a small one.</dd>
+<dt><code>app.start.pre_activation.duration</code></dt>
+<dd>A number of seconds giving the time from process start to the moment app code first ran, on a prewarmed launch. The span starts where that time ends, so it is no part of the launch's duration.</dd>
+<dt><code>app.start.pre_init.duration</code></dt>
+<dd>A number of seconds giving the duration of the <code>app.start.pre_init</code> child span.</dd>
+<dt><code>app.start.prewarm.cache_state</code></dt>
+<dd>A string giving whether a prewarmed launch still had to bring the app's code into memory. Either <code>cold</code> or <code>warm</code>, by the same comparison that decides a launch's type. It is diagnostic only, and leaves <code>app.start.type</code> at <code>prewarmed</code>.</dd>
+<dt><code>app.start.render.duration</code></dt>
+<dd>A number of seconds giving the duration of the <code>app.start.render</code> child span.</dd>
+<dt><code>app.start.type</code></dt>
+<dd>A string giving how the launch began. Either <code>cold</code>, <code>warm</code> or <code>prewarmed</code>, as <a href="#start-types">Start types</a> describes. The <code>app.start.duration</code> histogram carries this attribute too.</dd>
+</dl>
+
+### `app.resume`
+
+A resume span carries the following attributes, and none of the launch attributes above, because the process was already running. Every `app.resume.pages.text` count but the total needs the baseline the library takes when the app enters the background.
+
+<dl>
+<dt><code>app.resume.background.duration</code></dt>
+<dd>A number of seconds giving the time from when the app last entered the background to the start of the resume. Recorded only for a resume the app entered the background before.</dd>
+<dt><code>app.resume.outcome</code></dt>
+<dd>A string giving how the resume ended. Either <code>completed</code> or <code>abandoned</code>, as <code>app.start.outcome</code> is.</dd>
+<dt><code>app.resume.page_ins</code></dt>
+<dd>A number of page-ins the whole process took from <code>willEnterForeground</code> to the end of the span, which show what the system reclaimed while the app was suspended. The counter is cumulative for the process, so a count that went backwards means the system reset it and the library reports nothing.</dd>
+<dt><code>app.resume.pages.text.page_in_ratio</code></dt>
+<dd>A number from 0 to 1 giving <code>app.resume.pages.text.paged_in</code> divided by <code>app.resume.pages.text.resident_at_end</code>.</dd>
+<dt><code>app.resume.pages.text.paged_in</code></dt>
+<dd>A number of sampled pages that were resident at the end of the resume but not when the app entered the background. It is the difference between two snapshots rather than everything the system reclaimed, so a page reclaimed and read back while the app was away counts for nothing.</dd>
+<dt><code>app.resume.pages.text.resident_at_end</code></dt>
+<dd>A number of sampled pages of the app's code that were in memory at the end of the resume.</dd>
+<dt><code>app.resume.pages.text.sampled</code></dt>
+<dd>A number of pages of the app's code the resume sampled, the same pages the launch sampled.</dd>
+<dt><code>app.resume.pages.text.total</code></dt>
+<dd>A number of pages of the app's code that could be sampled, whether or not the sample covered them. The library reads it from the binary, so it reports it for every resume, including one with no page baseline.</dd>
+<dt><code>app.resume.type</code></dt>
+<dd>A string giving how much UI the resume had to rebuild. Either <code>hot</code>, <code>scene_reconnect</code> or <code>background_launched</code>, as <a href="#resume-types">Resume types</a> describes. The <code>app.resume.duration</code> histogram carries this attribute too.</dd>
 </dl>
 
 ## Platform support

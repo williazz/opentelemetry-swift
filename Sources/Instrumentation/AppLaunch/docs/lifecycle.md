@@ -55,7 +55,7 @@ The `app.resume.type` attribute can have the following values. Each describes a 
 <dt><code>scene_reconnect</code></dt>
 <dd>A return to the foreground after the system discarded the app's scene, so UIKit connects a new one. The span starts at <code>UIScene.willConnectNotification</code> rather than at <code>willEnterForeground</code>, because UIKit connects the scene first.</dd>
 <dt><code>background_launched</code></dt>
-<dd>The first time the app reaches the foreground after the system started the process in the background. Note that such a resume has no page baseline, so it reports none of the <code>app.resume.pages.text.*</code> attributes.</dd>
+<dd>The first time the app reaches the foreground after the system started the process in the background. Note that such a resume has no page baseline, so it reports <code>app.resume.pages.text.total</code> alone.</dd>
 </dl>
 
 Either of two signals reports a background launch:
